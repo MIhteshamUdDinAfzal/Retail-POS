@@ -25,9 +25,12 @@ sheet = init_connection()
 inv_ws = sheet.worksheet("Inventory")
 sales_ws = sheet.worksheet("Sales")
 req_ws = sheet.worksheet("Requested Items")
-# Safe connection for Customers sheet
+
+# Safe connection for Customers sheet + Auto Header Injection
 try:
     cust_ws = sheet.worksheet("Customers")
+    if not cust_ws.get_all_values():
+        cust_ws.append_row(["Customer Name", "Phone", "Balance (RS)", "Last Updated"])
 except:
     cust_ws = None
 
@@ -98,7 +101,6 @@ with tab1:
                     current_qty = int(df_inv.iloc[idx]['Quantity'])
                     new_qty = current_qty + qty
                     
-                    # Low Stock logic: <= 5 is Low Stock, 0 is Out of Stock
                     remarks = "Out of Stock" if new_qty == 0 else ("Low Stock" if new_qty <= 5 else "Available")
                     row_index = idx + 2 
                     
@@ -110,14 +112,6 @@ with tab1:
     else:
         st.subheader("Add New Item")
         
-        # Using Session State to auto-clear textboxes after saving
-        if "new_item_name" not in st.session_state:
-            st.session_state.new_item_name = ""
-        if "new_qty" not in st.session_state:
-            st.session_state.new_qty = 1
-        if "new_price" not in st.session_state:
-            st.session_state.new_price = None
-
         new_item_name = st.text_input("🆕 Enter New Item Name", key="input_item_name")
         
         col1, col2 = st.columns(2)
@@ -183,7 +177,6 @@ with tab2:
                         profit = (sell_price - buy_price) * qty_sold
                         new_qty = current_qty - qty_sold
                         
-                        # Remarks logic update
                         remarks = "Out of Stock" if new_qty == 0 else ("Low Stock" if new_qty <= 5 else "Available")
                         
                         row_index_inv = int(item_data.name) + 2 
@@ -284,7 +277,7 @@ with tab3:
     st.header("📓 Customer Credit System (Khata / Udhaar)")
     
     if cust_ws is None:
-        st.error("⚠️ Please create a new worksheet named 'Customers' in your Google Sheet with headers: [Customer Name, Phone, Balance (RS), Last Updated]")
+        st.error("⚠️ Please create a new worksheet named 'Customers' in your Google Sheet.")
     else:
         df_cust = get_data(cust_ws)
         
@@ -307,10 +300,9 @@ with tab3:
                         st.error("Please enter a valid amount.")
                     else:
                         date_str = get_pkt_date()
-                        # Check if customer already exists
                         if not df_cust.empty and 'Customer Name' in df_cust.columns and cust_name.lower() in df_cust['Customer Name'].str.lower().tolist():
                             idx = df_cust.index[df_cust['Customer Name'].str.lower() == cust_name.lower()].tolist()[0]
-                            current_balance = float(df_cust.iloc[idx]['Balance (RS)'] if pd.notna(df_cust.iloc[idx]['Balance (RS)']) else 0)
+                            current_balance = float(df_cust.iloc[idx]['Balance (RS)'] if 'Balance (RS)' in df_cust.columns and pd.notna(df_cust.iloc[idx]['Balance (RS)']) else 0)
                             
                             if action == "Gave Credit (Udhaar Diya)":
                                 new_balance = current_balance + amount
@@ -330,9 +322,11 @@ with tab3:
         with col_c2:
             st.subheader("📋 All Customers Khata List")
             if not df_cust.empty:
-                st.dataframe(df_cust, use_container_width=True, hide_index=True)
-                total_market_udhaar = pd.to_numeric(df_cust['Balance (RS)'], errors='coerce').sum()
-                st.metric("Total Market Udhaar (Receivable)", f"RS {total_market_udhaar:.2f}")
+                cols_to_show = [c for c in ['Customer Name', 'Phone', 'Balance (RS)', 'Last Updated'] if c in df_cust.columns]
+                st.dataframe(df_cust[cols_to_show], use_container_width=True, hide_index=True)
+                if 'Balance (RS)' in df_cust.columns:
+                    total_market_udhaar = pd.to_numeric(df_cust['Balance (RS)'], errors='coerce').sum()
+                    st.metric("Total Market Udhaar (Receivable)", f"RS {total_market_udhaar:.2f}")
             else:
                 st.info("No customer records found yet.")
 
@@ -403,12 +397,35 @@ with tab5:
     
     st.divider()
     
-    # Download Monthly/Sales Report Button
+    # 📥 Download Sales Report with Auto TOTAL Row at the bottom
     st.subheader("📥 Download Sales Reports")
     if not df_sales.empty:
-        csv_data = df_sales.to_csv(index=False).encode('utf-8')
+        df_download = df_sales.copy()
+        
+        # Calculate totals for CSV
+        total_qty = df_download['Quantity Sold'].sum() if 'Quantity Sold' in df_download.columns else 0
+        total_profit = df_download['Total Profit'].sum() if 'Total Profit' in df_download.columns else 0
+        total_purchase = df_download['Total Purchase Cost'].sum() if 'Total Purchase Cost' in df_download.columns else 0
+        total_revenue = df_download['Total Revenue'].sum() if 'Total Revenue' in df_download.columns else 0
+        
+        # Build total row matching columns
+        total_row = {col: "" for col in df_download.columns}
+        if 'Item Name' in total_row:
+            total_row['Item Name'] = "TOTAL"
+        if 'Quantity Sold' in total_row:
+            total_row['Quantity Sold'] = total_qty
+        if 'Total Profit' in total_row:
+            total_row['Total Profit'] = total_profit
+        if 'Total Purchase Cost' in total_row:
+            total_row['Total Purchase Cost'] = total_purchase
+        if 'Total Revenue' in total_row:
+            total_row['Total Revenue'] = total_revenue
+            
+        df_download = pd.concat([df_download, pd.DataFrame([total_row])], ignore_index=True)
+        
+        csv_data = df_download.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📄 Download Complete Sales Report (CSV)",
+            label="📄 Download Complete Sales Report (CSV with Total)",
             data=csv_data,
             file_name=f"sales_report_{today_str}.csv",
             mime="text/csv",
