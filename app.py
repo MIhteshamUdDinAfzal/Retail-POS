@@ -25,9 +25,16 @@ sheet = init_connection()
 inv_ws = sheet.worksheet("Inventory")
 sales_ws = sheet.worksheet("Sales")
 req_ws = sheet.worksheet("Requested Items")
+# Safe connection for Customers sheet
+try:
+    cust_ws = sheet.worksheet("Customers")
+except:
+    cust_ws = None
 
 # --- HELPER FUNCTIONS ---
 def get_data(worksheet):
+    if worksheet is None:
+        return pd.DataFrame()
     records = worksheet.get_all_records()
     df = pd.DataFrame(records)
     if not df.empty:
@@ -43,9 +50,10 @@ def get_pkt_date():
 # --- UI LAYOUT ---
 st.title("🏪 Retail Shop POS & Inventory")
 
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📦 Add Item", 
     "🛒 Sell Item", 
+    "📓 Khata (Credit)", 
     "📝 Customer Demands", 
     "📊 Dashboard"
 ])
@@ -69,7 +77,6 @@ with tab1:
         else:
             selected_option = st.selectbox("🔍 Search & Select Item", existing_items, index=None, placeholder="Choose an item from the list...")
             
-            # Default empty, but if item is selected, load its old price
             default_price = None 
             if selected_option:
                 idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
@@ -78,7 +85,6 @@ with tab1:
                 
             col1, col2 = st.columns(2)
             qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
-            # Uses default_price if item is selected, else completely empty (None)
             buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=default_price, step=1.0, key="exist_price")
             
             submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
@@ -91,21 +97,32 @@ with tab1:
                 else:
                     current_qty = int(df_inv.iloc[idx]['Quantity'])
                     new_qty = current_qty + qty
+                    
+                    # Low Stock logic: <= 5 is Low Stock, 0 is Out of Stock
+                    remarks = "Out of Stock" if new_qty == 0 else ("Low Stock" if new_qty <= 5 else "Available")
                     row_index = idx + 2 
                     
-                    inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
+                    inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, remarks]])
                     st.success(f"Restocked '{selected_option}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
                     clear_cache()
                     st.rerun()
 
     else:
         st.subheader("Add New Item")
-        new_item_name = st.text_input("🆕 Enter New Item Name")
+        
+        # Using Session State to auto-clear textboxes after saving
+        if "new_item_name" not in st.session_state:
+            st.session_state.new_item_name = ""
+        if "new_qty" not in st.session_state:
+            st.session_state.new_qty = 1
+        if "new_price" not in st.session_state:
+            st.session_state.new_price = None
+
+        new_item_name = st.text_input("🆕 Enter New Item Name", key="input_item_name")
         
         col1, col2 = st.columns(2)
-        qty = col1.number_input("Initial Quantity", min_value=1, step=1, key="new_qty")
-        # 🔴 value=None makes the box completely empty
-        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=None, step=1.0, key="new_price", placeholder="Type price here...")
+        qty = col1.number_input("Initial Quantity", min_value=1, step=1, key="input_qty")
+        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=None, step=1.0, key="input_price", placeholder="Type price here...")
         
         submitted = st.button("Save New Item", use_container_width=True, key="btn_new")
         
@@ -123,8 +140,9 @@ with tab1:
                     else:
                         new_s_no = len(df_inv) + 1
                     
-                    inv_ws.insert_row([new_s_no, new_item_name, buy_price, qty, "Available"], index=2)
-                    st.success(f"Added new item '{new_item_name}' to inventory!")
+                    remarks = "Out of Stock" if qty == 0 else ("Low Stock" if qty <= 5 else "Available")
+                    inv_ws.insert_row([new_s_no, new_item_name, buy_price, qty, remarks], index=2)
+                    st.success(f"Added new item '{new_item_name}' to inventory successfully! Textboxes cleared.")
                     clear_cache()
                     st.rerun()
 
@@ -141,11 +159,10 @@ with tab2:
         available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
         
         with st.form("sell_item_form"):
-            selected_item = st.selectbox("🔍 Search & Select Item", available_items, index=None, placeholder="Choose an item to sell...")
+            selected_item = st.selectbox("🔍 Select Item to Sell", available_items, index=None, placeholder="Choose an item...")
             
             col1, col2 = st.columns(2)
             qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
-            # 🔴 value=None makes the box completely empty
             sell_price = col2.number_input("Selling Price Per Unit (RS)", min_value=0.0, value=None, step=1.0, placeholder="Type selling price...")
             
             sell_submitted = st.form_submit_button("Complete Sale")
@@ -165,7 +182,9 @@ with tab2:
                         buy_price = float(item_data['Purchased price'])
                         profit = (sell_price - buy_price) * qty_sold
                         new_qty = current_qty - qty_sold
-                        remarks = "Out of Stock" if new_qty == 0 else "Available"
+                        
+                        # Remarks logic update
+                        remarks = "Out of Stock" if new_qty == 0 else ("Low Stock" if new_qty <= 5 else "Available")
                         
                         row_index_inv = int(item_data.name) + 2 
                         inv_ws.update(range_name=f"D{row_index_inv}:E{row_index_inv}", values=[[new_qty, remarks]])
@@ -212,8 +231,6 @@ with tab2:
     st.divider()
     
     st.subheader("↩️ Undo / Delete a Sale")
-    st.info("Deleting a merged sale will restore the total combined quantity of that item for the day.")
-    
     df_sales_current = get_data(sales_ws)
     
     if not df_sales_current.empty and 'S No.' in df_sales_current.columns:
@@ -245,8 +262,10 @@ with tab2:
                             inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
                             current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
                             new_qty = current_inv_qty + qty_to_restore
+                            remarks = "Out of Stock" if new_qty == 0 else ("Low Stock" if new_qty <= 5 else "Available")
+                            
                             inv_row = inv_idx + 2
-                            inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
+                            inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, remarks]])
                         
                         st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been restored.")
                         clear_cache()
@@ -259,9 +278,68 @@ with tab2:
         st.write("No sales records available to delete.")
 
 # ==========================================
-# TAB 3: CUSTOMER DEMANDS
+# TAB 3: KHATA (CUSTOMER CREDIT SYSTEM)
 # ==========================================
 with tab3:
+    st.header("📓 Customer Credit System (Khata / Udhaar)")
+    
+    if cust_ws is None:
+        st.error("⚠️ Please create a new worksheet named 'Customers' in your Google Sheet with headers: [Customer Name, Phone, Balance (RS), Last Updated]")
+    else:
+        df_cust = get_data(cust_ws)
+        
+        col_c1, col_c2 = st.columns(2)
+        
+        with col_c1:
+            st.subheader("➕ Add / Update Customer Credit")
+            with st.form("khata_form"):
+                cust_name = st.text_input("Customer Name")
+                cust_phone = st.text_input("Phone Number")
+                amount = st.number_input("Amount (RS)", min_value=0.0, value=None, step=1.0, placeholder="Enter amount...")
+                action = st.radio("Transaction Type", ["Gave Credit (Udhaar Diya)", "Received Payment (Pैसे Mile)"], horizontal=True)
+                
+                khata_submitted = st.form_submit_button("Save Transaction")
+                
+                if khata_submitted:
+                    if not cust_name:
+                        st.error("Please enter Customer Name.")
+                    elif amount is None or amount <= 0:
+                        st.error("Please enter a valid amount.")
+                    else:
+                        date_str = get_pkt_date()
+                        # Check if customer already exists
+                        if not df_cust.empty and 'Customer Name' in df_cust.columns and cust_name.lower() in df_cust['Customer Name'].str.lower().tolist():
+                            idx = df_cust.index[df_cust['Customer Name'].str.lower() == cust_name.lower()].tolist()[0]
+                            current_balance = float(df_cust.iloc[idx]['Balance (RS)'] if pd.notna(df_cust.iloc[idx]['Balance (RS)']) else 0)
+                            
+                            if action == "Gave Credit (Udhaar Diya)":
+                                new_balance = current_balance + amount
+                            else:
+                                new_balance = current_balance - amount
+                                
+                            row_idx = idx + 2
+                            cust_ws.update(range_name=f"C{row_idx}:D{row_idx}", values=[[new_balance, date_str]])
+                            st.success(f"Updated Khata for {cust_name}! New Balance: RS {new_balance:.2f}")
+                        else:
+                            initial_balance = amount if action == "Gave Credit (Udhaar Diya)" else -amount
+                            cust_ws.append_row([cust_name, cust_phone, initial_balance, date_str])
+                            st.success(f"Added new customer {cust_name} with balance RS {initial_balance:.2f}")
+                        clear_cache()
+                        st.rerun()
+
+        with col_c2:
+            st.subheader("📋 All Customers Khata List")
+            if not df_cust.empty:
+                st.dataframe(df_cust, use_container_width=True, hide_index=True)
+                total_market_udhaar = pd.to_numeric(df_cust['Balance (RS)'], errors='coerce').sum()
+                st.metric("Total Market Udhaar (Receivable)", f"RS {total_market_udhaar:.2f}")
+            else:
+                st.info("No customer records found yet.")
+
+# ==========================================
+# TAB 4: CUSTOMER DEMANDS
+# ==========================================
+with tab4:
     st.header("Track New Item Demands")
     st.info("Log items requested by customers that you don't currently stock.")
     
@@ -289,9 +367,9 @@ with tab3:
             st.rerun()
 
 # ==========================================
-# TAB 4: DASHBOARD
+# TAB 5: DASHBOARD
 # ==========================================
-with tab4:
+with tab5:
     st.header("Dashboard & Analytics")
     
     df_sales = get_data(sales_ws)
@@ -325,6 +403,22 @@ with tab4:
     
     st.divider()
     
+    # Download Monthly/Sales Report Button
+    st.subheader("📥 Download Sales Reports")
+    if not df_sales.empty:
+        csv_data = df_sales.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📄 Download Complete Sales Report (CSV)",
+            data=csv_data,
+            file_name=f"sales_report_{today_str}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.info("No sales data available for download yet.")
+
+    st.divider()
+    
     st.subheader("📅 Daily Sales Report (Ledger)")
     if not df_sales.empty and 'Date' in df_sales.columns:
         unique_dates = sorted(df_sales['Date'].unique(), reverse=True)
@@ -347,14 +441,14 @@ with tab4:
     
     col_a, col_b = st.columns(2)
     with col_a:
-        st.subheader("🔴 To-Buy / Restock List")
+        st.subheader("⚠️ Low Stock & Out of Stock List")
         if not df_inv.empty and 'Remarks' in df_inv.columns:
-            out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
-            if not out_of_stock.empty:
-                cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Quantity'] if col in out_of_stock.columns]
-                st.dataframe(out_of_stock[cols_to_show], use_container_width=True, hide_index=True)
+            low_or_out = df_inv[df_inv['Remarks'].isin(["Out of Stock", "Low Stock"])]
+            if not low_or_out.empty:
+                cols_to_show = [col for col in ['Item Name', 'Quantity', 'Remarks'] if col in low_or_out.columns]
+                st.dataframe(low_or_out[cols_to_show], use_container_width=True, hide_index=True)
             else:
-                st.success("All items are in stock!")
+                st.success("All items have sufficient stock!")
         else:
             st.write("No inventory data.")
 
