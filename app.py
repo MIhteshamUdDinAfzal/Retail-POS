@@ -54,57 +54,54 @@ with tab1:
     existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
     options = ["➕ Create New Item"] + existing_items
     
-    # 1. Search Box (Placed outside the form to make it dynamic)
+    # 1. Search Box
     selected_option = st.selectbox("🔍 Search & Select Item (Or Add New)", options, help="Type here to search your existing inventory.")
     
     final_item_name = selected_option
     default_price = 0.0
     
-    # 2. Dynamic Textbox & Price Loading Logic
+    # 2. Dynamic Textbox
     if selected_option == "➕ Create New Item":
         final_item_name = st.text_input("🆕 Enter New Item Name")
     else:
-        # Load the existing price of the selected item automatically
         if not df_inv.empty:
             idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
             default_price = float(df_inv.iloc[idx]['Purchased price'])
             st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
 
-    with st.form("add_item_form"):
-        col1, col2 = st.columns(2)
-        qty = col1.number_input("Quantity to Add", min_value=1, step=1)
-        
-        # This will show the old price. If user changes it, it will overwrite the old one!
-        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0)
-        
-        submitted = st.form_submit_button("Update Inventory")
-        
-        if submitted:
-            if final_item_name:
-                if selected_option != "➕ Create New Item":
-                    # --- RESTOCK & UPDATE PRICE ---
-                    idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
-                    current_qty = int(df_inv.iloc[idx]['Quantity'])
-                    new_qty = current_qty + qty
-                    row_index = idx + 2 
-                    
-                    # Updates Price (Col C), Qty (Col D), Remarks (Col E)
-                    inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
-                    st.success(f"Restocked '{final_item_name}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
-                else:
-                    # --- CREATE COMPLETELY NEW ITEM ---
-                    # Check if user accidentally typed an already existing item name
-                    if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
-                        st.error(f"Item '{final_item_name}' already exists! Please select it from the dropdown above.")
-                    else:
-                        new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
-                        inv_ws.append_row([new_s_no, final_item_name, buy_price, qty, "Available"])
-                        st.success(f"Added new item '{final_item_name}' to inventory!")
+    # Form ختم کر دیا گیا ہے تاکہ ڈائنیمک ان پٹ ٹھیک سے کام کرے
+    col1, col2 = st.columns(2)
+    qty = col1.number_input("Quantity to Add", min_value=1, step=1)
+    buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0)
+    
+    # Normal Button
+    submitted = st.button("Update Inventory", use_container_width=True)
+    
+    if submitted:
+        if final_item_name:
+            if selected_option != "➕ Create New Item":
+                # --- RESTOCK & UPDATE PRICE ---
+                idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
+                current_qty = int(df_inv.iloc[idx]['Quantity'])
+                new_qty = current_qty + qty
+                row_index = idx + 2 
                 
-                clear_cache()
-                st.rerun()
+                inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
+                st.success(f"Restocked '{final_item_name}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
             else:
-                st.error("Please provide an Item Name.")
+                # --- CREATE COMPLETELY NEW ITEM ---
+                if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
+                    st.error(f"Item '{final_item_name}' already exists! Please select it from the dropdown above.")
+                else:
+                    new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
+                    # insert_row کا استعمال تاکہ نیا آئٹم شیٹ میں سب سے اوپر نظر آئے
+                    inv_ws.insert_row([new_s_no, final_item_name, buy_price, qty, "Available"], index=2)
+                    st.success(f"Added new item '{final_item_name}' to inventory!")
+            
+            clear_cache()
+            st.rerun()
+        else:
+            st.error("Please provide an Item Name.")
 
 # ==========================================
 # TAB 2: SELL ITEM (POS)
@@ -223,7 +220,8 @@ with tab3:
                 req_ws.update_acell(f"A{row_index}", date_str) 
                 st.success(f"Updated demand count for '{req_item}'.")
             else:
-                req_ws.append_row([date_str, req_item, 1])
+                # Customer demands mein bhi naya item upar add hoga
+                req_ws.insert_row([date_str, req_item, 1], index=2)
                 st.success(f"Logged new demand for '{req_item}'.")
             
             clear_cache()
