@@ -67,22 +67,28 @@ with tab1:
         if not existing_items:
             st.warning("No items in inventory yet. Please add a new item first.")
         else:
-            # 🔴 index=None makes the selectbox empty by default
             selected_option = st.selectbox("🔍 Search & Select Item", existing_items, index=None, placeholder="Choose an item from the list...")
             
+            # Default empty, but if item is selected, load its old price
+            default_price = None 
             if selected_option:
-                default_price = 0.0
                 idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
                 default_price = float(df_inv.iloc[idx]['Purchased price'])
                 st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
                 
-                col1, col2 = st.columns(2)
-                qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
-                buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0, key="exist_price")
-                
-                submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
-                
-                if submitted:
+            col1, col2 = st.columns(2)
+            qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
+            # Uses default_price if item is selected, else completely empty (None)
+            buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=default_price, step=1.0, key="exist_price")
+            
+            submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
+            
+            if submitted:
+                if not selected_option:
+                    st.error("Please select an item first.")
+                elif buy_price is None:
+                    st.error("Please enter the Purchased Price.")
+                else:
                     current_qty = int(df_inv.iloc[idx]['Quantity'])
                     new_qty = current_qty + qty
                     row_index = idx + 2 
@@ -91,8 +97,6 @@ with tab1:
                     st.success(f"Restocked '{selected_option}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
                     clear_cache()
                     st.rerun()
-            else:
-                st.info("👆 Please search and select an item above to restock.")
 
     else:
         st.subheader("Add New Item")
@@ -100,12 +104,17 @@ with tab1:
         
         col1, col2 = st.columns(2)
         qty = col1.number_input("Initial Quantity", min_value=1, step=1, key="new_qty")
-        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, step=1.0, key="new_price")
+        # 🔴 value=None makes the box completely empty
+        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=None, step=1.0, key="new_price", placeholder="Type price here...")
         
         submitted = st.button("Save New Item", use_container_width=True, key="btn_new")
         
         if submitted:
-            if new_item_name:
+            if not new_item_name:
+                st.error("Please provide an Item Name.")
+            elif buy_price is None:
+                st.error("Please enter the Purchased Price.")
+            else:
                 if not df_inv.empty and new_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
                     st.error(f"Item '{new_item_name}' already exists! Go to 'Restock Existing Item'.")
                 else:
@@ -118,8 +127,6 @@ with tab1:
                     st.success(f"Added new item '{new_item_name}' to inventory!")
                     clear_cache()
                     st.rerun()
-            else:
-                st.error("Please provide an Item Name.")
 
 # ==========================================
 # TAB 2: SELL ITEM (POS)
@@ -134,17 +141,21 @@ with tab2:
         available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
         
         with st.form("sell_item_form"):
-            # 🔴 index=None makes the selectbox empty by default
             selected_item = st.selectbox("🔍 Search & Select Item", available_items, index=None, placeholder="Choose an item to sell...")
             
             col1, col2 = st.columns(2)
             qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
-            sell_price = col2.number_input("Selling Price Per Unit (RS)", min_value=0.0, step=1.0)
+            # 🔴 value=None makes the box completely empty
+            sell_price = col2.number_input("Selling Price Per Unit (RS)", min_value=0.0, value=None, step=1.0, placeholder="Type selling price...")
             
             sell_submitted = st.form_submit_button("Complete Sale")
             
             if sell_submitted:
-                if selected_item:
+                if not selected_item:
+                    st.error("Please select an item to sell.")
+                elif sell_price is None:
+                    st.error("Please enter the Selling Price.")
+                else:
                     item_data = df_inv[df_inv['Item Name'] == selected_item].iloc[0]
                     current_qty = int(item_data['Quantity'])
                     
@@ -197,8 +208,6 @@ with tab2:
                         
                         clear_cache()
                         st.rerun()
-                else:
-                    st.error("Please select an item to sell.")
     
     st.divider()
     
@@ -218,7 +227,6 @@ with tab2:
             
         if sale_options:
             with st.form("delete_sale_form"):
-                # 🔴 index=None makes the selectbox empty by default
                 selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1], index=None, placeholder="Select a sale to delete...")
                 delete_submitted = st.form_submit_button("🗑️ Delete Sale & Restore Inventory")
                 
