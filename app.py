@@ -183,15 +183,48 @@ with tab4:
     
     today_sales = 0
     today_profit = 0
-    if not df_sales.empty:
-        df_today = df_sales[df_sales['Date'] == today_str]
-        today_sales = (df_today['Sell price'] * df_today['Quantity Sold']).sum()
-        today_profit = df_today['Total Profit'].sum()
+    
+    # Error Handling: Check if data exists and columns are correct
+    if not df_sales.empty and 'Date' in df_sales.columns:
+        df_today = df_sales[df_sales['Date'] == today_str].copy()
+        
+        # Check if 'Sell price' and 'Quantity Sold' columns actually exist before calculating
+        if 'Sell price' in df_today.columns and 'Quantity Sold' in df_today.columns:
+            # Convert to numeric just in case there is text
+            df_today['Sell price'] = pd.to_numeric(df_today['Sell price'], errors='coerce').fillna(0)
+            df_today['Quantity Sold'] = pd.to_numeric(df_today['Quantity Sold'], errors='coerce').fillna(0)
+            today_sales = (df_today['Sell price'] * df_today['Quantity Sold']).sum()
+            
+        if 'Total Profit' in df_today.columns:
+            df_today['Total Profit'] = pd.to_numeric(df_today['Total Profit'], errors='coerce').fillna(0)
+            today_profit = df_today['Total Profit'].sum()
     
     col1, col2 = st.columns(2)
     col1.metric("Today's Total Revenue", f"${today_sales:.2f}")
     col2.metric("Today's Total Profit", f"${today_profit:.2f}")
     
+    st.divider()
+    
+    st.subheader("🔴 To-Buy / Restock List")
+    if not df_inv.empty and 'Remarks' in df_inv.columns:
+        out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
+        if not out_of_stock.empty:
+            # Safe display of columns
+            cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Quantity'] if col in out_of_stock.columns]
+            st.dataframe(out_of_stock[cols_to_show], use_container_width=True, hide_index=True)
+        else:
+            st.success("All items are currently in stock!")
+    else:
+        st.write("No inventory data.")
+
+    st.divider()
+    
+    st.subheader("🔥 Most Demanded New Items")
+    if not df_req.empty and 'Demand Count' in df_req.columns:
+        top_demands = df_req.sort_values(by="Demand Count", ascending=False)
+        st.dataframe(top_demands, use_container_width=True, hide_index=True)
+    else:
+        st.write("No customer demands logged yet.")    
     st.divider()
     
     st.subheader("🔴 To-Buy / Restock List")
