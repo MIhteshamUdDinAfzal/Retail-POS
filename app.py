@@ -48,60 +48,72 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: ADD ITEM (INVENTORY)
 # ==========================================
 with tab1:
-    st.header("Add or Restock Item in Inventory")
+    st.header("Inventory Management")
     df_inv = get_data(inv_ws)
     
-    existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
-    options = ["➕ Create New Item"] + existing_items
+    # 1. Radio Buttons to separate Logic
+    action_type = st.radio("What do you want to do?", ["🔄 Restock Existing Item", "📦 Add Completely New Item"], horizontal=True)
+    st.divider()
     
-    # 1. Search Box
-    selected_option = st.selectbox("🔍 Search & Select Item (Or Add New)", options, help="Type here to search your existing inventory.")
-    
-    final_item_name = selected_option
-    default_price = 0.0
-    
-    # 2. Dynamic Textbox
-    if selected_option == "➕ Create New Item":
-        final_item_name = st.text_input("🆕 Enter New Item Name")
-    else:
-        if not df_inv.empty:
-            idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
-            default_price = float(df_inv.iloc[idx]['Purchased price'])
-            st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
-
-    # Form ختم کر دیا گیا ہے تاکہ ڈائنیمک ان پٹ ٹھیک سے کام کرے
-    col1, col2 = st.columns(2)
-    qty = col1.number_input("Quantity to Add", min_value=1, step=1)
-    buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0)
-    
-    # Normal Button
-    submitted = st.button("Update Inventory", use_container_width=True)
-    
-    if submitted:
-        if final_item_name:
-            if selected_option != "➕ Create New Item":
-                # --- RESTOCK & UPDATE PRICE ---
+    if action_type == "🔄 Restock Existing Item":
+        st.subheader("Restock Existing Item")
+        existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
+        
+        if not existing_items:
+            st.warning("No items in inventory yet. Please add a new item first.")
+        else:
+            selected_option = st.selectbox("🔍 Search & Select Item", existing_items)
+            
+            # Auto-fetch existing price
+            default_price = 0.0
+            if not df_inv.empty:
+                idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
+                default_price = float(df_inv.iloc[idx]['Purchased price'])
+                st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
+            
+            col1, col2 = st.columns(2)
+            qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
+            buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0, key="exist_price")
+            
+            submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
+            
+            if submitted:
                 idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
                 current_qty = int(df_inv.iloc[idx]['Quantity'])
                 new_qty = current_qty + qty
                 row_index = idx + 2 
                 
                 inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
-                st.success(f"Restocked '{final_item_name}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
-            else:
-                # --- CREATE COMPLETELY NEW ITEM ---
-                if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
-                    st.error(f"Item '{final_item_name}' already exists! Please select it from the dropdown above.")
+                st.success(f"Restocked '{selected_option}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
+                clear_cache()
+                st.rerun()
+
+    else:
+        st.subheader("Add New Item")
+        new_item_name = st.text_input("🆕 Enter New Item Name")
+        
+        col1, col2 = st.columns(2)
+        qty = col1.number_input("Initial Quantity", min_value=1, step=1, key="new_qty")
+        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, step=1.0, key="new_price")
+        
+        submitted = st.button("Save New Item", use_container_width=True, key="btn_new")
+        
+        if submitted:
+            if new_item_name:
+                if not df_inv.empty and new_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
+                    st.error(f"Item '{new_item_name}' already exists! Go to 'Restock Existing Item'.")
                 else:
-                    new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
-                    # insert_row کا استعمال تاکہ نیا آئٹم شیٹ میں سب سے اوپر نظر آئے
-                    inv_ws.insert_row([new_s_no, final_item_name, buy_price, qty, "Available"], index=2)
-                    st.success(f"Added new item '{final_item_name}' to inventory!")
-            
-            clear_cache()
-            st.rerun()
-        else:
-            st.error("Please provide an Item Name.")
+                    if not df_inv.empty and 'S No.' in df_inv.columns:
+                        new_s_no = int(pd.to_numeric(df_inv['S No.'], errors='coerce').max() + 1) if pd.notna(pd.to_numeric(df_inv['S No.'], errors='coerce').max()) else 1
+                    else:
+                        new_s_no = len(df_inv) + 1
+                    
+                    inv_ws.insert_row([new_s_no, new_item_name, buy_price, qty, "Available"], index=2)
+                    st.success(f"Added new item '{new_item_name}' to inventory!")
+                    clear_cache()
+                    st.rerun()
+            else:
+                st.error("Please provide an Item Name.")
 
 # ==========================================
 # TAB 2: SELL ITEM (POS)
@@ -131,23 +143,57 @@ with tab2:
                 if qty_sold > current_qty:
                     st.error(f"Not enough stock! Only {current_qty} left.")
                 else:
+                    # Calculations
                     buy_price = float(item_data['Purchased price'])
                     profit = (sell_price - buy_price) * qty_sold
                     new_qty = current_qty - qty_sold
                     remarks = "Out of Stock" if new_qty == 0 else "Available"
                     
-                    row_index = int(item_data.name) + 2 
-                    inv_ws.update(range_name=f"D{row_index}:E{row_index}", values=[[new_qty, remarks]])
+                    # Update Inventory Sheet
+                    row_index_inv = int(item_data.name) + 2 
+                    inv_ws.update(range_name=f"D{row_index_inv}:E{row_index_inv}", values=[[new_qty, remarks]])
                     
+                    # 🔴 NEW LOGIC: Check if same item sold on same day with same price
                     df_sales = get_data(sales_ws)
-                    new_sales_no = int(df_sales['S No.'].max() + 1) if not df_sales.empty else 1
                     date_str = datetime.now().strftime("%Y-%m-%d")
                     
-                    sales_ws.append_row([
-                        new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
-                    ])
+                    is_merged = False
+                    if not df_sales.empty:
+                        # Find matching row
+                        matches = df_sales[
+                            (df_sales['Date'] == date_str) & 
+                            (df_sales['Item Name'].str.lower() == selected_item.lower()) &
+                            (pd.to_numeric(df_sales['Sell price'], errors='coerce') == sell_price)
+                        ]
+                        
+                        if not matches.empty:
+                            # Merge with existing row
+                            sale_idx = matches.index[0]
+                            old_qty_sold = int(matches.iloc[0]['Quantity Sold'])
+                            old_profit = float(matches.iloc[0]['Total Profit'])
+                            
+                            updated_qty = old_qty_sold + qty_sold
+                            updated_profit = old_profit + profit
+                            
+                            row_index_sales = int(sale_idx) + 2
+                            # Update Qty (Col F) and Profit (Col G)
+                            sales_ws.update(range_name=f"F{row_index_sales}:G{row_index_sales}", values=[[updated_qty, updated_profit]])
+                            is_merged = True
+                            st.success(f"Updated today's entry! Total {updated_qty}x {selected_item} sold today.")
                     
-                    st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for RS {sell_price} each. Total Profit: RS {profit:.2f}")
+                    # If not merged, append new row
+                    if not is_merged:
+                        if not df_sales.empty and 'S No.' in df_sales.columns:
+                            max_val = pd.to_numeric(df_sales['S No.'], errors='coerce').max()
+                            new_sales_no = int(max_val + 1) if pd.notna(max_val) else 1
+                        else:
+                            new_sales_no = len(df_sales) + 1
+                        
+                        sales_ws.append_row([
+                            new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
+                        ])
+                        st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for RS {sell_price} each.")
+                    
                     clear_cache()
                     st.rerun()
     
@@ -155,7 +201,7 @@ with tab2:
     
     # Undo / Delete a Sale
     st.subheader("↩️ Undo / Delete a Sale")
-    st.info("Mistakes happen! Delete a wrong sale here. The items will automatically be returned to your inventory.")
+    st.info("Deleting a merged sale will restore the total combined quantity of that item for the day.")
     
     df_sales_current = get_data(sales_ws)
     
@@ -164,35 +210,37 @@ with tab2:
         sale_options = {}
         for index, row in recent_sales.iterrows():
             s_no = row['S No.']
-            label = f"Sale #{s_no} | {row['Date']} | {row['Quantity Sold']}x {row['Item Name']} | Profit: RS {row['Total Profit']}"
-            sale_options[label] = s_no
+            if pd.notna(s_no):
+                label = f"Sale #{int(s_no)} | {row.get('Date', 'N/A')} | {row.get('Quantity Sold', 0)}x {row.get('Item Name', 'N/A')} | Profit: RS {row.get('Total Profit', 0)}"
+                sale_options[label] = s_no
             
-        with st.form("delete_sale_form"):
-            selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1])
-            delete_submitted = st.form_submit_button("🗑️ Delete Sale & Restore Inventory")
-            
-            if delete_submitted and selected_sale_label:
-                s_no_to_delete = sale_options[selected_sale_label]
+        if sale_options:
+            with st.form("delete_sale_form"):
+                selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1])
+                delete_submitted = st.form_submit_button("🗑️ Delete Sale & Restore Inventory")
                 
-                sale_record = df_sales_current[df_sales_current['S No.'] == s_no_to_delete].iloc[0]
-                item_name = sale_record['Item Name']
-                qty_to_restore = int(sale_record['Quantity Sold'])
-                
-                sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
-                sales_ws.delete_rows(sale_idx + 2) 
-                
-                df_inv_current = get_data(inv_ws)
-                if not df_inv_current.empty and item_name.lower() in df_inv_current['Item Name'].str.lower().tolist():
-                    inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
-                    current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
-                    new_qty = current_inv_qty + qty_to_restore
+                if delete_submitted and selected_sale_label:
+                    s_no_to_delete = sale_options[selected_sale_label]
+                    sale_record = df_sales_current[df_sales_current['S No.'] == s_no_to_delete].iloc[0]
+                    item_name = sale_record['Item Name']
+                    qty_to_restore = int(sale_record['Quantity Sold'])
                     
-                    inv_row = inv_idx + 2
-                    inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
-                
-                st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been added back to your inventory.")
-                clear_cache()
-                st.rerun()
+                    sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
+                    sales_ws.delete_rows(sale_idx + 2) 
+                    
+                    df_inv_current = get_data(inv_ws)
+                    if not df_inv_current.empty and item_name.lower() in df_inv_current['Item Name'].str.lower().tolist():
+                        inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
+                        current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
+                        new_qty = current_inv_qty + qty_to_restore
+                        inv_row = inv_idx + 2
+                        inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
+                    
+                    st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been restored.")
+                    clear_cache()
+                    st.rerun()
+        else:
+            st.write("No valid sales records available to delete.")
     else:
         st.write("No sales records available to delete.")
 
@@ -220,7 +268,6 @@ with tab3:
                 req_ws.update_acell(f"A{row_index}", date_str) 
                 st.success(f"Updated demand count for '{req_item}'.")
             else:
-                # Customer demands mein bhi naya item upar add hoga
                 req_ws.insert_row([date_str, req_item, 1], index=2)
                 st.success(f"Logged new demand for '{req_item}'.")
             
@@ -264,7 +311,7 @@ with tab4:
     
     st.divider()
     
-    st.subheader("📅 Daily Sales Report")
+    st.subheader("📅 Daily Sales Report (Ledger)")
     if not df_sales.empty and 'Date' in df_sales.columns:
         unique_dates = sorted(df_sales['Date'].unique(), reverse=True)
         
