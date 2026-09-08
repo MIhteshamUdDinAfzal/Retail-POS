@@ -9,7 +9,6 @@ st.set_page_config(page_title="Retail POS & Inventory", layout="wide")
 
 @st.cache_resource
 def init_connection():
-    # Load credentials from Streamlit Secrets
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -55,8 +54,9 @@ with tab1:
         col1, col2 = st.columns(2)
         item_name = col1.text_input("Item Name")
         qty = col1.number_input("Quantity", min_value=1, step=1)
+        
+        # Only Purchased Price is asked here now
         buy_price = col2.number_input("Purchased Price", min_value=0.0, step=1.0)
-        sell_price = col2.number_input("Sell Price", min_value=0.0, step=1.0)
         
         submitted = st.form_submit_button("Add to Inventory")
         
@@ -66,7 +66,8 @@ with tab1:
                 new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
                 remarks = "Available" if qty > 0 else "Out of Stock"
                 
-                inv_ws.append_row([new_s_no, item_name, buy_price, sell_price, qty, remarks])
+                # Appending without Sell Price
+                inv_ws.append_row([new_s_no, item_name, buy_price, qty, remarks])
                 st.success(f"Added '{item_name}' to inventory successfully!")
                 clear_cache()
             else:
@@ -82,12 +83,16 @@ with tab2:
     if df_inv.empty:
         st.warning("Inventory is empty. Add items first.")
     else:
-        # Filter only available items
         available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
         
         with st.form("sell_item_form"):
             selected_item = st.selectbox("Search & Select Item", available_items)
-            qty_sold = st.number_input("Quantity Sold", min_value=1, step=1)
+            
+            col1, col2 = st.columns(2)
+            qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
+            
+            # User manually enters the Sell Price at checkout
+            sell_price = col2.number_input("Selling Price (Per Unit)", min_value=0.0, step=1.0)
             
             sell_submitted = st.form_submit_button("Complete Sale")
             
@@ -98,21 +103,16 @@ with tab2:
                 if qty_sold > current_qty:
                     st.error(f"Not enough stock! Only {current_qty} left.")
                 else:
-                    # Calculations
                     buy_price = float(item_data['Purchased price'])
-                    sell_price = float(item_data['Sell price'])
                     profit = (sell_price - buy_price) * qty_sold
                     new_qty = current_qty - qty_sold
                     remarks = "Out of Stock" if new_qty == 0 else "Available"
                     
-                    # Update Inventory Sheet
-                    # gspread is 1-indexed, and row 1 is headers. So +2 to get correct row
                     row_index = int(item_data.name) + 2 
                     
-                    # Update Quantity (Col E) and Remarks (Col F)
-                    inv_ws.update(f"E{row_index}:F{row_index}", [[new_qty, remarks]])
+                    # Columns shifted: Quantity is now Col D, Remarks is Col E
+                    inv_ws.update(range_name=f"D{row_index}:E{row_index}", values=[[new_qty, remarks]])
                     
-                    # Log Sale
                     df_sales = get_data(sales_ws)
                     new_sales_no = int(df_sales['S No.'].max() + 1) if not df_sales.empty else 1
                     date_str = datetime.now().strftime("%Y-%m-%d")
@@ -121,7 +121,7 @@ with tab2:
                         new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
                     ])
                     
-                    st.success(f"Sale successful! Sold {qty_sold}x {selected_item}. Profit: ${profit:.2f}")
+                    st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for ${sell_price} each. Total Profit: ${profit:.2f}")
                     clear_cache()
 
 # ==========================================
@@ -139,18 +139,15 @@ with tab3:
             df_req = get_data(req_ws)
             date_str = datetime.now().strftime("%Y-%m-%d")
             
-            # Check if item exists
             if not df_req.empty and req_item.lower() in df_req['Item Name'].str.lower().tolist():
-                # Find row index to update count
                 idx = df_req.index[df_req['Item Name'].str.lower() == req_item.lower()].tolist()[0]
                 current_count = int(df_req.iloc[idx]['Demand Count'])
                 
                 row_index = idx + 2
                 req_ws.update_acell(f"C{row_index}", current_count + 1)
-                req_ws.update_acell(f"A{row_index}", date_str) # Update to latest date
+                req_ws.update_acell(f"A{row_index}", date_str) 
                 st.success(f"Updated demand count for '{req_item}'.")
             else:
-                # Add new row
                 req_ws.append_row([date_str, req_item, 1])
                 st.success(f"Logged new demand for '{req_item}'.")
             clear_cache()
@@ -161,12 +158,10 @@ with tab3:
 with tab4:
     st.header("Dashboard & Analytics")
     
-    # Fetch latest data
     df_sales = get_data(sales_ws)
     df_inv = get_data(inv_ws)
     df_req = get_data(req_ws)
     
-    # 1. Today's Metrics
     today_str = datetime.now().strftime("%Y-%m-%d")
     
     today_sales = 0
@@ -177,17 +172,17 @@ with tab4:
         today_profit = df_today['Total Profit'].sum()
     
     col1, col2 = st.columns(2)
-    col1.metric("Today's Total Sales", f"${today_sales:.2f}")
+    col1.metric("Today's Total Revenue", f"${today_sales:.2f}")
     col2.metric("Today's Total Profit", f"${today_profit:.2f}")
     
     st.divider()
     
-    # 2. To-Buy / Restock List
     st.subheader("🔴 To-Buy / Restock List")
     if not df_inv.empty:
         out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
         if not out_of_stock.empty:
-            st.dataframe(out_of_stock[['Item Name', 'Purchased price', 'Sell price']], use_container_width=True, hide_index=True)
+            # Removed 'Sell price' from the display dataframe to prevent errors
+            st.dataframe(out_of_stock[['Item Name', 'Purchased price', 'Quantity']], use_container_width=True, hide_index=True)
         else:
             st.success("All items are currently in stock!")
     else:
@@ -195,7 +190,6 @@ with tab4:
 
     st.divider()
     
-    # 3. Most Demanded New Items
     st.subheader("🔥 Most Demanded New Items")
     if not df_req.empty:
         top_demands = df_req.sort_values(by="Demand Count", ascending=False)
