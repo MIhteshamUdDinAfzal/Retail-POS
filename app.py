@@ -19,12 +19,14 @@ def init_connection():
     sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"])
     return sheet
 
-sheet = init_connection()
-
-# Worksheets
-inv_ws = sheet.worksheet("Inventory")
-sales_ws = sheet.worksheet("Sales")
-req_ws = sheet.worksheet("Requested Items")
+try:
+    sheet = init_connection()
+    inv_ws = sheet.worksheet("Inventory")
+    sales_ws = sheet.worksheet("Sales")
+    req_ws = sheet.worksheet("Requested Items")
+except Exception as e:
+    st.error(f"Google Sheets Connection Error: {e}")
+    st.stop()
 
 # Safe connection for Customers sheet + Auto Header Injection
 try:
@@ -33,6 +35,14 @@ try:
         cust_ws.append_row(["Customer Name", "Phone", "Balance (RS)", "Last Updated"])
 except:
     cust_ws = None
+
+# Safe connection for Cash Outflow sheet + Auto Header Injection
+try:
+    outflow_ws = sheet.worksheet("Cash Outflow")
+    if not outflow_ws.get_all_values():
+        outflow_ws.append_row(["Date", "Description", "Amount (RS)"])
+except:
+    outflow_ws = None
 
 # --- HELPER FUNCTIONS ---
 def get_data(worksheet):
@@ -53,10 +63,11 @@ def get_pkt_date():
 # --- UI LAYOUT ---
 st.title("🏪 Retail Shop POS & Inventory")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📦 Add Item", 
     "🛒 Sell Item", 
     "📓 Khata (Credit)", 
+    "💸 Cash Outflow", 
     "📝 Customer Demands", 
     "📊 Dashboard"
 ])
@@ -331,9 +342,53 @@ with tab3:
                 st.info("No customer records found yet.")
 
 # ==========================================
-# TAB 4: CUSTOMER DEMANDS
+# TAB 4: CASH OUTFLOW (EXPENSES & PURCHASES)
 # ==========================================
 with tab4:
+    st.header("💸 Cash Outflow (Purchases & Expenses Tracker)")
+    st.info("Record any direct cash outflow like wholesale market shopping, shop bills, or expenses by entering the total amount.")
+    
+    if outflow_ws is None:
+        st.error("⚠️ Please create a new worksheet named 'Cash Outflow' in your Google Sheet.")
+    else:
+        df_outflow = get_data(outflow_ws)
+        
+        col_o1, col_o2 = st.columns(2)
+        
+        with col_o1:
+            st.subheader("➕ Add Cash Outflow")
+            with st.form("outflow_form"):
+                desc = st.text_input("Description (e.g., Wholesale Shopping, Electricity Bill)")
+                outflow_amount = st.number_input("Total Amount (RS)", min_value=0.0, value=None, step=1.0, placeholder="Enter total amount...")
+                
+                outflow_submitted = st.form_submit_button("Save Cash Outflow")
+                
+                if outflow_submitted:
+                    if not desc:
+                        st.error("Please enter a description.")
+                    elif outflow_amount is None or outflow_amount <= 0:
+                        st.error("Please enter a valid amount.")
+                    else:
+                        date_str = get_pkt_date()
+                        outflow_ws.insert_row([date_str, desc, outflow_amount], index=2)
+                        st.success(f"Logged Cash Outflow of RS {outflow_amount:.2f} for '{desc}' successfully!")
+                        clear_cache()
+                        st.rerun()
+                        
+        with col_o2:
+            st.subheader("📋 Recent Cash Outflows")
+            if not df_outflow.empty:
+                cols_to_show = [c for c in ['Date', 'Description', 'Amount (RS)'] if c in df_outflow.columns]
+                st.dataframe(df_outflow[cols_to_show], use_container_width=True, hide_index=True)
+                total_outflow = pd.to_numeric(df_outflow['Amount (RS)'], errors='coerce').sum()
+                st.metric("Total Cash Outflow Recorded", f"RS {total_outflow:.2f}")
+            else:
+                st.info("No cash outflow records found yet.")
+
+# ==========================================
+# TAB 5: CUSTOMER DEMANDS
+# ==========================================
+with tab5:
     st.header("Track New Item Demands")
     st.info("Log items requested by customers that you don't currently stock.")
     
@@ -361,14 +416,15 @@ with tab4:
             st.rerun()
 
 # ==========================================
-# TAB 5: DASHBOARD
+# TAB 6: DASHBOARD
 # ==========================================
-with tab5:
+with tab6:
     st.header("Dashboard & Analytics")
     
     df_sales = get_data(sales_ws)
     df_inv = get_data(inv_ws)
     df_req = get_data(req_ws)
+    df_outflow = get_data(outflow_ws)
     
     today_str = get_pkt_date()
     
@@ -390,10 +446,18 @@ with tab5:
             today_sales = df_today['Total Revenue'].sum()
         if 'Total Profit' in df_today.columns:
             today_profit = df_today['Total Profit'].sum()
+            
+    # Calculate Today's Cash Outflow
+    today_outflow = 0
+    if not df_outflow.empty and 'Date' in df_outflow.columns and 'Amount (RS)' in df_outflow.columns:
+        df_outflow['Amount (RS)'] = pd.to_numeric(df_outflow['Amount (RS)'], errors='coerce').fillna(0)
+        df_outflow_today = df_outflow[df_outflow['Date'] == today_str]
+        today_outflow = df_outflow_today['Amount (RS)'].sum()
     
-    col1, col2 = st.columns(2)
-    col1.metric("Today's Total Revenue (Gross Sale)", f"RS {today_sales:.2f}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Today's Total Revenue", f"RS {today_sales:.2f}")
     col2.metric("Today's Total Profit", f"RS {today_profit:.2f}")
+    col3.metric("Today's Cash Outflow", f"RS {today_outflow:.2f}")
     
     st.divider()
     
@@ -402,13 +466,11 @@ with tab5:
     if not df_sales.empty:
         df_download = df_sales.copy()
         
-        # Calculate totals for CSV
         total_qty = df_download['Quantity Sold'].sum() if 'Quantity Sold' in df_download.columns else 0
         total_profit = df_download['Total Profit'].sum() if 'Total Profit' in df_download.columns else 0
         total_purchase = df_download['Total Purchase Cost'].sum() if 'Total Purchase Cost' in df_download.columns else 0
         total_revenue = df_download['Total Revenue'].sum() if 'Total Revenue' in df_download.columns else 0
         
-        # Build total row matching columns
         total_row = {col: "" for col in df_download.columns}
         if 'Item Name' in total_row:
             total_row['Item Name'] = "TOTAL"
