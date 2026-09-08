@@ -2,7 +2,7 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- SETUP & AUTHENTICATION ---
 st.set_page_config(page_title="Retail POS & Inventory", layout="wide")
@@ -26,13 +26,19 @@ inv_ws = sheet.worksheet("Inventory")
 sales_ws = sheet.worksheet("Sales")
 req_ws = sheet.worksheet("Requested Items")
 
-# Helper Functions
+# --- HELPER FUNCTIONS ---
 def get_data(worksheet):
     records = worksheet.get_all_records()
-    return pd.DataFrame(records)
+    df = pd.DataFrame(records)
+    if not df.empty:
+        df.columns = df.columns.astype(str).str.strip()
+    return df
 
 def clear_cache():
     st.cache_data.clear()
+
+def get_pkt_date():
+    return (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d")
 
 # --- UI LAYOUT ---
 st.title("🏪 Retail Shop POS & Inventory")
@@ -51,7 +57,6 @@ with tab1:
     st.header("Inventory Management")
     df_inv = get_data(inv_ws)
     
-    # 1. Radio Buttons to separate Logic
     action_type = st.radio("What do you want to do?", ["🔄 Restock Existing Item", "📦 Add Completely New Item"], horizontal=True)
     st.divider()
     
@@ -62,31 +67,32 @@ with tab1:
         if not existing_items:
             st.warning("No items in inventory yet. Please add a new item first.")
         else:
-            selected_option = st.selectbox("🔍 Search & Select Item", existing_items)
+            # 🔴 index=None makes the selectbox empty by default
+            selected_option = st.selectbox("🔍 Search & Select Item", existing_items, index=None, placeholder="Choose an item from the list...")
             
-            # Auto-fetch existing price
-            default_price = 0.0
-            if not df_inv.empty:
+            if selected_option:
+                default_price = 0.0
                 idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
                 default_price = float(df_inv.iloc[idx]['Purchased price'])
                 st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
-            
-            col1, col2 = st.columns(2)
-            qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
-            buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0, key="exist_price")
-            
-            submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
-            
-            if submitted:
-                idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
-                current_qty = int(df_inv.iloc[idx]['Quantity'])
-                new_qty = current_qty + qty
-                row_index = idx + 2 
                 
-                inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
-                st.success(f"Restocked '{selected_option}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
-                clear_cache()
-                st.rerun()
+                col1, col2 = st.columns(2)
+                qty = col1.number_input("Quantity to Add", min_value=1, step=1, key="exist_qty")
+                buy_price = col2.number_input("Update Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0, key="exist_price")
+                
+                submitted = st.button("Update Inventory", use_container_width=True, key="btn_exist")
+                
+                if submitted:
+                    current_qty = int(df_inv.iloc[idx]['Quantity'])
+                    new_qty = current_qty + qty
+                    row_index = idx + 2 
+                    
+                    inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
+                    st.success(f"Restocked '{selected_option}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
+                    clear_cache()
+                    st.rerun()
+            else:
+                st.info("👆 Please search and select an item above to restock.")
 
     else:
         st.subheader("Add New Item")
@@ -128,7 +134,8 @@ with tab2:
         available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
         
         with st.form("sell_item_form"):
-            selected_item = st.selectbox("🔍 Search & Select Item", available_items)
+            # 🔴 index=None makes the selectbox empty by default
+            selected_item = st.selectbox("🔍 Search & Select Item", available_items, index=None, placeholder="Choose an item to sell...")
             
             col1, col2 = st.columns(2)
             qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
@@ -136,70 +143,65 @@ with tab2:
             
             sell_submitted = st.form_submit_button("Complete Sale")
             
-            if sell_submitted and selected_item:
-                item_data = df_inv[df_inv['Item Name'] == selected_item].iloc[0]
-                current_qty = int(item_data['Quantity'])
-                
-                if qty_sold > current_qty:
-                    st.error(f"Not enough stock! Only {current_qty} left.")
+            if sell_submitted:
+                if selected_item:
+                    item_data = df_inv[df_inv['Item Name'] == selected_item].iloc[0]
+                    current_qty = int(item_data['Quantity'])
+                    
+                    if qty_sold > current_qty:
+                        st.error(f"Not enough stock! Only {current_qty} left.")
+                    else:
+                        buy_price = float(item_data['Purchased price'])
+                        profit = (sell_price - buy_price) * qty_sold
+                        new_qty = current_qty - qty_sold
+                        remarks = "Out of Stock" if new_qty == 0 else "Available"
+                        
+                        row_index_inv = int(item_data.name) + 2 
+                        inv_ws.update(range_name=f"D{row_index_inv}:E{row_index_inv}", values=[[new_qty, remarks]])
+                        
+                        df_sales = get_data(sales_ws)
+                        date_str = get_pkt_date()
+                        
+                        is_merged = False
+                        if not df_sales.empty:
+                            matches = df_sales[
+                                (df_sales['Date'] == date_str) & 
+                                (df_sales['Item Name'].str.lower() == selected_item.lower()) &
+                                (pd.to_numeric(df_sales['Sell price'], errors='coerce') == sell_price)
+                            ]
+                            
+                            if not matches.empty:
+                                sale_idx = matches.index[0]
+                                old_qty_sold = int(matches.iloc[0]['Quantity Sold'])
+                                old_profit = float(matches.iloc[0]['Total Profit'])
+                                
+                                updated_qty = old_qty_sold + qty_sold
+                                updated_profit = old_profit + profit
+                                
+                                row_index_sales = int(sale_idx) + 2
+                                sales_ws.update(range_name=f"F{row_index_sales}:G{row_index_sales}", values=[[updated_qty, updated_profit]])
+                                is_merged = True
+                                st.success(f"Updated today's entry! Total {updated_qty}x {selected_item} sold today.")
+                        
+                        if not is_merged:
+                            if not df_sales.empty and 'S No.' in df_sales.columns:
+                                max_val = pd.to_numeric(df_sales['S No.'], errors='coerce').max()
+                                new_sales_no = int(max_val + 1) if pd.notna(max_val) else 1
+                            else:
+                                new_sales_no = len(df_sales) + 1
+                            
+                            sales_ws.append_row([
+                                new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
+                            ])
+                            st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for RS {sell_price} each.")
+                        
+                        clear_cache()
+                        st.rerun()
                 else:
-                    # Calculations
-                    buy_price = float(item_data['Purchased price'])
-                    profit = (sell_price - buy_price) * qty_sold
-                    new_qty = current_qty - qty_sold
-                    remarks = "Out of Stock" if new_qty == 0 else "Available"
-                    
-                    # Update Inventory Sheet
-                    row_index_inv = int(item_data.name) + 2 
-                    inv_ws.update(range_name=f"D{row_index_inv}:E{row_index_inv}", values=[[new_qty, remarks]])
-                    
-                    # 🔴 NEW LOGIC: Check if same item sold on same day with same price
-                    df_sales = get_data(sales_ws)
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    
-                    is_merged = False
-                    if not df_sales.empty:
-                        # Find matching row
-                        matches = df_sales[
-                            (df_sales['Date'] == date_str) & 
-                            (df_sales['Item Name'].str.lower() == selected_item.lower()) &
-                            (pd.to_numeric(df_sales['Sell price'], errors='coerce') == sell_price)
-                        ]
-                        
-                        if not matches.empty:
-                            # Merge with existing row
-                            sale_idx = matches.index[0]
-                            old_qty_sold = int(matches.iloc[0]['Quantity Sold'])
-                            old_profit = float(matches.iloc[0]['Total Profit'])
-                            
-                            updated_qty = old_qty_sold + qty_sold
-                            updated_profit = old_profit + profit
-                            
-                            row_index_sales = int(sale_idx) + 2
-                            # Update Qty (Col F) and Profit (Col G)
-                            sales_ws.update(range_name=f"F{row_index_sales}:G{row_index_sales}", values=[[updated_qty, updated_profit]])
-                            is_merged = True
-                            st.success(f"Updated today's entry! Total {updated_qty}x {selected_item} sold today.")
-                    
-                    # If not merged, append new row
-                    if not is_merged:
-                        if not df_sales.empty and 'S No.' in df_sales.columns:
-                            max_val = pd.to_numeric(df_sales['S No.'], errors='coerce').max()
-                            new_sales_no = int(max_val + 1) if pd.notna(max_val) else 1
-                        else:
-                            new_sales_no = len(df_sales) + 1
-                        
-                        sales_ws.append_row([
-                            new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
-                        ])
-                        st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for RS {sell_price} each.")
-                    
-                    clear_cache()
-                    st.rerun()
+                    st.error("Please select an item to sell.")
     
     st.divider()
     
-    # Undo / Delete a Sale
     st.subheader("↩️ Undo / Delete a Sale")
     st.info("Deleting a merged sale will restore the total combined quantity of that item for the day.")
     
@@ -216,29 +218,33 @@ with tab2:
             
         if sale_options:
             with st.form("delete_sale_form"):
-                selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1])
+                # 🔴 index=None makes the selectbox empty by default
+                selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1], index=None, placeholder="Select a sale to delete...")
                 delete_submitted = st.form_submit_button("🗑️ Delete Sale & Restore Inventory")
                 
-                if delete_submitted and selected_sale_label:
-                    s_no_to_delete = sale_options[selected_sale_label]
-                    sale_record = df_sales_current[df_sales_current['S No.'] == s_no_to_delete].iloc[0]
-                    item_name = sale_record['Item Name']
-                    qty_to_restore = int(sale_record['Quantity Sold'])
-                    
-                    sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
-                    sales_ws.delete_rows(sale_idx + 2) 
-                    
-                    df_inv_current = get_data(inv_ws)
-                    if not df_inv_current.empty and item_name.lower() in df_inv_current['Item Name'].str.lower().tolist():
-                        inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
-                        current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
-                        new_qty = current_inv_qty + qty_to_restore
-                        inv_row = inv_idx + 2
-                        inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
-                    
-                    st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been restored.")
-                    clear_cache()
-                    st.rerun()
+                if delete_submitted:
+                    if selected_sale_label:
+                        s_no_to_delete = sale_options[selected_sale_label]
+                        sale_record = df_sales_current[df_sales_current['S No.'] == s_no_to_delete].iloc[0]
+                        item_name = sale_record['Item Name']
+                        qty_to_restore = int(sale_record['Quantity Sold'])
+                        
+                        sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
+                        sales_ws.delete_rows(sale_idx + 2) 
+                        
+                        df_inv_current = get_data(inv_ws)
+                        if not df_inv_current.empty and item_name.lower() in df_inv_current['Item Name'].str.lower().tolist():
+                            inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
+                            current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
+                            new_qty = current_inv_qty + qty_to_restore
+                            inv_row = inv_idx + 2
+                            inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
+                        
+                        st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been restored.")
+                        clear_cache()
+                        st.rerun()
+                    else:
+                        st.error("Please select a sale to delete.")
         else:
             st.write("No valid sales records available to delete.")
     else:
@@ -257,7 +263,7 @@ with tab3:
         
         if req_submit and req_item:
             df_req = get_data(req_ws)
-            date_str = datetime.now().strftime("%Y-%m-%d")
+            date_str = get_pkt_date()
             
             if not df_req.empty and req_item.lower() in df_req['Item Name'].str.lower().tolist():
                 idx = df_req.index[df_req['Item Name'].str.lower() == req_item.lower()].tolist()[0]
@@ -284,7 +290,7 @@ with tab4:
     df_inv = get_data(inv_ws)
     df_req = get_data(req_ws)
     
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = get_pkt_date()
     
     if not df_sales.empty:
         for col in ['Purchased price', 'Sell price', 'Quantity Sold', 'Total Profit']:
@@ -306,7 +312,7 @@ with tab4:
             today_profit = df_today['Total Profit'].sum()
     
     col1, col2 = st.columns(2)
-    col1.metric("Today's Total Revenue", f"RS {today_sales:.2f}")
+    col1.metric("Today's Total Revenue (Gross Sale)", f"RS {today_sales:.2f}")
     col2.metric("Today's Total Profit", f"RS {today_profit:.2f}")
     
     st.divider()
@@ -325,7 +331,7 @@ with tab4:
                 net_revenue = df_day['Total Revenue'].sum() if 'Total Revenue' in df_day.columns else 0
                 net_profit = df_day['Total Profit'].sum() if 'Total Profit' in df_day.columns else 0
                 
-                st.markdown(f"**🛒 Net Purchase Cost:** RS {net_purchased:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **💰 Net Sales (Gross):** RS {net_revenue:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **📈 Net Profit:** RS {net_profit:.2f}")
+                st.markdown(f"**🛒 Total Purchase Cost:** RS {net_purchased:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **💰 Total Gross Sale:** RS {net_revenue:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **📈 Total Net Profit:** RS {net_profit:.2f}")
     else:
         st.info("No sales data available yet.")
 
