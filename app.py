@@ -51,46 +51,58 @@ with tab1:
     st.header("Add or Restock Item in Inventory")
     df_inv = get_data(inv_ws)
     
-    # Get existing items for the dropdown
     existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
     options = ["➕ Create New Item"] + existing_items
     
+    # 1. Search Box (Placed outside the form to make it dynamic)
+    selected_option = st.selectbox("🔍 Search & Select Item (Or Add New)", options, help="Type here to search your existing inventory.")
+    
+    final_item_name = selected_option
+    default_price = 0.0
+    
+    # 2. Dynamic Textbox & Price Loading Logic
+    if selected_option == "➕ Create New Item":
+        final_item_name = st.text_input("🆕 Enter New Item Name")
+    else:
+        # Load the existing price of the selected item automatically
+        if not df_inv.empty:
+            idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
+            default_price = float(df_inv.iloc[idx]['Purchased price'])
+            st.info(f"✔️ Selected: **{selected_option}** (Current Purchase Price: RS {default_price})")
+
     with st.form("add_item_form"):
-        # Select existing item or choose to create a new one
-        selected_option = st.selectbox("Select Existing Item or Add New", options)
-        new_item_name = st.text_input("New Item Name (Only if creating new)")
-        
         col1, col2 = st.columns(2)
         qty = col1.number_input("Quantity to Add", min_value=1, step=1)
-        buy_price = col2.number_input("Purchased Price", min_value=0.0, step=1.0)
+        
+        # This will show the old price. If user changes it, it will overwrite the old one!
+        buy_price = col2.number_input("Purchased Price (RS)", min_value=0.0, value=float(default_price), step=1.0)
         
         submitted = st.form_submit_button("Update Inventory")
         
         if submitted:
-            # Determine the final item name based on user selection
-            final_item_name = new_item_name if selected_option == "➕ Create New Item" else selected_option
-            
             if final_item_name:
-                # Check if item already exists in inventory (case-insensitive)
-                if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
-                    # --- UPDATE EXISTING ITEM (RESTOCK) ---
-                    idx = df_inv.index[df_inv['Item Name'].str.lower() == final_item_name.lower()].tolist()[0]
+                if selected_option != "➕ Create New Item":
+                    # --- RESTOCK & UPDATE PRICE ---
+                    idx = df_inv.index[df_inv['Item Name'] == selected_option].tolist()[0]
                     current_qty = int(df_inv.iloc[idx]['Quantity'])
                     new_qty = current_qty + qty
-                    
-                    # +2 because DataFrame index starts at 0, and Sheet row 1 is header
                     row_index = idx + 2 
                     
-                    # Update Price (Col C), Quantity (Col D), and Remarks (Col E)
+                    # Updates Price (Col C), Qty (Col D), Remarks (Col E)
                     inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
-                    st.success(f"Restocked '{final_item_name}'! New Total Quantity: {new_qty}")
+                    st.success(f"Restocked '{final_item_name}'! New Qty: {new_qty}. Price updated to RS {buy_price}.")
                 else:
-                    # --- ADD COMPLETELY NEW ITEM ---
-                    new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
-                    inv_ws.append_row([new_s_no, final_item_name, buy_price, qty, "Available"])
-                    st.success(f"Added new item '{final_item_name}' to inventory!")
+                    # --- CREATE COMPLETELY NEW ITEM ---
+                    # Check if user accidentally typed an already existing item name
+                    if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
+                        st.error(f"Item '{final_item_name}' already exists! Please select it from the dropdown above.")
+                    else:
+                        new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
+                        inv_ws.append_row([new_s_no, final_item_name, buy_price, qty, "Available"])
+                        st.success(f"Added new item '{final_item_name}' to inventory!")
                 
                 clear_cache()
+                st.rerun()
             else:
                 st.error("Please provide an Item Name.")
 
@@ -107,11 +119,11 @@ with tab2:
         available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
         
         with st.form("sell_item_form"):
-            selected_item = st.selectbox("Search & Select Item", available_items)
+            selected_item = st.selectbox("🔍 Search & Select Item", available_items)
             
             col1, col2 = st.columns(2)
             qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
-            sell_price = col2.number_input("Selling Price (Per Unit)", min_value=0.0, step=1.0)
+            sell_price = col2.number_input("Selling Price Per Unit (RS)", min_value=0.0, step=1.0)
             
             sell_submitted = st.form_submit_button("Complete Sale")
             
@@ -138,8 +150,54 @@ with tab2:
                         new_sales_no, date_str, selected_item, buy_price, sell_price, qty_sold, profit
                     ])
                     
-                    st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for ${sell_price} each. Total Profit: ${profit:.2f}")
+                    st.success(f"Sale successful! Sold {qty_sold}x {selected_item} for RS {sell_price} each. Total Profit: RS {profit:.2f}")
                     clear_cache()
+                    st.rerun()
+    
+    st.divider()
+    
+    # Undo / Delete a Sale
+    st.subheader("↩️ Undo / Delete a Sale")
+    st.info("Mistakes happen! Delete a wrong sale here. The items will automatically be returned to your inventory.")
+    
+    df_sales_current = get_data(sales_ws)
+    
+    if not df_sales_current.empty and 'S No.' in df_sales_current.columns:
+        recent_sales = df_sales_current.tail(20).copy()
+        sale_options = {}
+        for index, row in recent_sales.iterrows():
+            s_no = row['S No.']
+            label = f"Sale #{s_no} | {row['Date']} | {row['Quantity Sold']}x {row['Item Name']} | Profit: RS {row['Total Profit']}"
+            sale_options[label] = s_no
+            
+        with st.form("delete_sale_form"):
+            selected_sale_label = st.selectbox("Select Recent Sale to Delete", list(sale_options.keys())[::-1])
+            delete_submitted = st.form_submit_button("🗑️ Delete Sale & Restore Inventory")
+            
+            if delete_submitted and selected_sale_label:
+                s_no_to_delete = sale_options[selected_sale_label]
+                
+                sale_record = df_sales_current[df_sales_current['S No.'] == s_no_to_delete].iloc[0]
+                item_name = sale_record['Item Name']
+                qty_to_restore = int(sale_record['Quantity Sold'])
+                
+                sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
+                sales_ws.delete_rows(sale_idx + 2) 
+                
+                df_inv_current = get_data(inv_ws)
+                if not df_inv_current.empty and item_name.lower() in df_inv_current['Item Name'].str.lower().tolist():
+                    inv_idx = df_inv_current.index[df_inv_current['Item Name'].str.lower() == item_name.lower()].tolist()[0]
+                    current_inv_qty = int(df_inv_current.iloc[inv_idx]['Quantity'])
+                    new_qty = current_inv_qty + qty_to_restore
+                    
+                    inv_row = inv_idx + 2
+                    inv_ws.update(range_name=f"D{inv_row}:E{inv_row}", values=[[new_qty, "Available"]])
+                
+                st.success(f"Sale deleted! {qty_to_restore}x '{item_name}' have been added back to your inventory.")
+                clear_cache()
+                st.rerun()
+    else:
+        st.write("No sales records available to delete.")
 
 # ==========================================
 # TAB 3: CUSTOMER DEMANDS
@@ -167,7 +225,9 @@ with tab3:
             else:
                 req_ws.append_row([date_str, req_item, 1])
                 st.success(f"Logged new demand for '{req_item}'.")
+            
             clear_cache()
+            st.rerun()
 
 # ==========================================
 # TAB 4: DASHBOARD
@@ -181,67 +241,68 @@ with tab4:
     
     today_str = datetime.now().strftime("%Y-%m-%d")
     
+    if not df_sales.empty:
+        for col in ['Purchased price', 'Sell price', 'Quantity Sold', 'Total Profit']:
+            if col in df_sales.columns:
+                df_sales[col] = pd.to_numeric(df_sales[col], errors='coerce').fillna(0)
+                
+        if 'Purchased price' in df_sales.columns and 'Quantity Sold' in df_sales.columns:
+            df_sales['Total Purchase Cost'] = df_sales['Purchased price'] * df_sales['Quantity Sold']
+        if 'Sell price' in df_sales.columns and 'Quantity Sold' in df_sales.columns:
+            df_sales['Total Revenue'] = df_sales['Sell price'] * df_sales['Quantity Sold']
+            
     today_sales = 0
     today_profit = 0
-    
-    # Error Handling: Check if data exists and columns are correct
     if not df_sales.empty and 'Date' in df_sales.columns:
-        df_today = df_sales[df_sales['Date'] == today_str].copy()
-        
-        # Check if 'Sell price' and 'Quantity Sold' columns actually exist before calculating
-        if 'Sell price' in df_today.columns and 'Quantity Sold' in df_today.columns:
-            # Convert to numeric just in case there is text
-            df_today['Sell price'] = pd.to_numeric(df_today['Sell price'], errors='coerce').fillna(0)
-            df_today['Quantity Sold'] = pd.to_numeric(df_today['Quantity Sold'], errors='coerce').fillna(0)
-            today_sales = (df_today['Sell price'] * df_today['Quantity Sold']).sum()
-            
+        df_today = df_sales[df_sales['Date'] == today_str]
+        if 'Total Revenue' in df_today.columns:
+            today_sales = df_today['Total Revenue'].sum()
         if 'Total Profit' in df_today.columns:
-            df_today['Total Profit'] = pd.to_numeric(df_today['Total Profit'], errors='coerce').fillna(0)
             today_profit = df_today['Total Profit'].sum()
     
     col1, col2 = st.columns(2)
-    col1.metric("Today's Total Revenue", f"${today_sales:.2f}")
-    col2.metric("Today's Total Profit", f"${today_profit:.2f}")
+    col1.metric("Today's Total Revenue", f"RS {today_sales:.2f}")
+    col2.metric("Today's Total Profit", f"RS {today_profit:.2f}")
     
     st.divider()
     
-    st.subheader("🔴 To-Buy / Restock List")
-    if not df_inv.empty and 'Remarks' in df_inv.columns:
-        out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
-        if not out_of_stock.empty:
-            # Safe display of columns
-            cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Quantity'] if col in out_of_stock.columns]
-            st.dataframe(out_of_stock[cols_to_show], use_container_width=True, hide_index=True)
-        else:
-            st.success("All items are currently in stock!")
+    st.subheader("📅 Daily Sales Report")
+    if not df_sales.empty and 'Date' in df_sales.columns:
+        unique_dates = sorted(df_sales['Date'].unique(), reverse=True)
+        
+        for date in unique_dates:
+            df_day = df_sales[df_sales['Date'] == date]
+            with st.expander(f"🗓️ Sales Date: {date}", expanded=(date == today_str)):
+                cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Sell price', 'Quantity Sold', 'Total Profit'] if col in df_day.columns]
+                st.dataframe(df_day[cols_to_show], use_container_width=True, hide_index=True)
+                
+                net_purchased = df_day['Total Purchase Cost'].sum() if 'Total Purchase Cost' in df_day.columns else 0
+                net_revenue = df_day['Total Revenue'].sum() if 'Total Revenue' in df_day.columns else 0
+                net_profit = df_day['Total Profit'].sum() if 'Total Profit' in df_day.columns else 0
+                
+                st.markdown(f"**🛒 Net Purchase Cost:** RS {net_purchased:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **💰 Net Sales (Gross):** RS {net_revenue:.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **📈 Net Profit:** RS {net_profit:.2f}")
     else:
-        st.write("No inventory data.")
+        st.info("No sales data available yet.")
 
     st.divider()
     
-    st.subheader("🔥 Most Demanded New Items")
-    if not df_req.empty and 'Demand Count' in df_req.columns:
-        top_demands = df_req.sort_values(by="Demand Count", ascending=False)
-        st.dataframe(top_demands, use_container_width=True, hide_index=True)
-    else:
-        st.write("No customer demands logged yet.")    
-    st.divider()
-    
-    st.subheader("🔴 To-Buy / Restock List")
-    if not df_inv.empty:
-        out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
-        if not out_of_stock.empty:
-            st.dataframe(out_of_stock[['Item Name', 'Purchased price', 'Quantity']], use_container_width=True, hide_index=True)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("🔴 To-Buy / Restock List")
+        if not df_inv.empty and 'Remarks' in df_inv.columns:
+            out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
+            if not out_of_stock.empty:
+                cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Quantity'] if col in out_of_stock.columns]
+                st.dataframe(out_of_stock[cols_to_show], use_container_width=True, hide_index=True)
+            else:
+                st.success("All items are in stock!")
         else:
-            st.success("All items are currently in stock!")
-    else:
-        st.write("No inventory data.")
+            st.write("No inventory data.")
 
-    st.divider()
-    
-    st.subheader("🔥 Most Demanded New Items")
-    if not df_req.empty:
-        top_demands = df_req.sort_values(by="Demand Count", ascending=False)
-        st.dataframe(top_demands, use_container_width=True, hide_index=True)
-    else:
-        st.write("No customer demands logged yet.")
+    with col_b:
+        st.subheader("🔥 Demanded Items")
+        if not df_req.empty and 'Demand Count' in df_req.columns:
+            top_demands = df_req.sort_values(by="Demand Count", ascending=False)
+            st.dataframe(top_demands, use_container_width=True, hide_index=True)
+        else:
+            st.write("No customer demands yet.")
