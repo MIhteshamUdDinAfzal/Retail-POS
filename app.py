@@ -48,30 +48,51 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: ADD ITEM (INVENTORY)
 # ==========================================
 with tab1:
-    st.header("Add New Item to Inventory")
+    st.header("Add or Restock Item in Inventory")
+    df_inv = get_data(inv_ws)
+    
+    # Get existing items for the dropdown
+    existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
+    options = ["➕ Create New Item"] + existing_items
     
     with st.form("add_item_form"):
-        col1, col2 = st.columns(2)
-        item_name = col1.text_input("Item Name")
-        qty = col1.number_input("Quantity", min_value=1, step=1)
+        # Select existing item or choose to create a new one
+        selected_option = st.selectbox("Select Existing Item or Add New", options)
+        new_item_name = st.text_input("New Item Name (Only if creating new)")
         
-        # Only Purchased Price is asked here now
+        col1, col2 = st.columns(2)
+        qty = col1.number_input("Quantity to Add", min_value=1, step=1)
         buy_price = col2.number_input("Purchased Price", min_value=0.0, step=1.0)
         
-        submitted = st.form_submit_button("Add to Inventory")
+        submitted = st.form_submit_button("Update Inventory")
         
         if submitted:
-            if item_name:
-                df_inv = get_data(inv_ws)
-                new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
-                remarks = "Available" if qty > 0 else "Out of Stock"
+            # Determine the final item name based on user selection
+            final_item_name = new_item_name if selected_option == "➕ Create New Item" else selected_option
+            
+            if final_item_name:
+                # Check if item already exists in inventory (case-insensitive)
+                if not df_inv.empty and final_item_name.lower() in df_inv['Item Name'].str.lower().tolist():
+                    # --- UPDATE EXISTING ITEM (RESTOCK) ---
+                    idx = df_inv.index[df_inv['Item Name'].str.lower() == final_item_name.lower()].tolist()[0]
+                    current_qty = int(df_inv.iloc[idx]['Quantity'])
+                    new_qty = current_qty + qty
+                    
+                    # +2 because DataFrame index starts at 0, and Sheet row 1 is header
+                    row_index = idx + 2 
+                    
+                    # Update Price (Col C), Quantity (Col D), and Remarks (Col E)
+                    inv_ws.update(range_name=f"C{row_index}:E{row_index}", values=[[buy_price, new_qty, "Available"]])
+                    st.success(f"Restocked '{final_item_name}'! New Total Quantity: {new_qty}")
+                else:
+                    # --- ADD COMPLETELY NEW ITEM ---
+                    new_s_no = int(df_inv['S No.'].max() + 1) if not df_inv.empty else 1
+                    inv_ws.append_row([new_s_no, final_item_name, buy_price, qty, "Available"])
+                    st.success(f"Added new item '{final_item_name}' to inventory!")
                 
-                # Appending without Sell Price
-                inv_ws.append_row([new_s_no, item_name, buy_price, qty, remarks])
-                st.success(f"Added '{item_name}' to inventory successfully!")
                 clear_cache()
             else:
-                st.error("Please enter an Item Name.")
+                st.error("Please provide an Item Name.")
 
 # ==========================================
 # TAB 2: SELL ITEM (POS)
@@ -90,8 +111,6 @@ with tab2:
             
             col1, col2 = st.columns(2)
             qty_sold = col1.number_input("Quantity Sold", min_value=1, step=1)
-            
-            # User manually enters the Sell Price at checkout
             sell_price = col2.number_input("Selling Price (Per Unit)", min_value=0.0, step=1.0)
             
             sell_submitted = st.form_submit_button("Complete Sale")
@@ -109,8 +128,6 @@ with tab2:
                     remarks = "Out of Stock" if new_qty == 0 else "Available"
                     
                     row_index = int(item_data.name) + 2 
-                    
-                    # Columns shifted: Quantity is now Col D, Remarks is Col E
                     inv_ws.update(range_name=f"D{row_index}:E{row_index}", values=[[new_qty, remarks]])
                     
                     df_sales = get_data(sales_ws)
@@ -181,7 +198,6 @@ with tab4:
     if not df_inv.empty:
         out_of_stock = df_inv[df_inv['Remarks'] == "Out of Stock"]
         if not out_of_stock.empty:
-            # Removed 'Sell price' from the display dataframe to prevent errors
             st.dataframe(out_of_stock[['Item Name', 'Purchased price', 'Quantity']], use_container_width=True, hide_index=True)
         else:
             st.success("All items are currently in stock!")
