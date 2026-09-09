@@ -1,18 +1,10 @@
 import os
-import tempfile
-import json
 import streamlit as st
 import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
-import time
-
-# --- NEW LIBRARIES FOR AI VOICE ASSISTANT ---
-from audio_recorder_streamlit import audio_recorder
-from groq import Groq
-import google.generativeai as genai
 
 # ==========================================
 # 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
@@ -170,63 +162,6 @@ try:
     outflow_ws = sheet.worksheet("Cash Outflow")
     if not outflow_ws.get_all_values(): outflow_ws.append_row(["Date", "Description", "Amount (RS)"])
 except: outflow_ws = None
-
-
-# --- UPDATED AI VOICE ASSISTANT FUNCTION ---
-GROQ_API_KEY = st.secrets.get("ai_keys", {}).get("GROQ_API_KEY", "")
-GEMINI_API_KEY = st.secrets.get("ai_keys", {}).get("GEMINI_API_KEY", "")
-
-def process_voice_command(audio_bytes, valid_items, task_type="sell"):
-    if not GROQ_API_KEY or not GEMINI_API_KEY:
-        st.error("⚠️ API Keys Missing in Secrets!")
-        return None
-    try:
-        groq_client = Groq(api_key=GROQ_API_KEY)
-        genai.configure(api_key=GEMINI_API_KEY)
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(audio_bytes)
-            tmp_path = tmp.name
-            
-        with open(tmp_path, "rb") as f:
-            transcription = groq_client.audio.transcriptions.create(
-                file=(tmp_path, f.read()),
-                model="whisper-large-v3",
-                language="ur"
-            )
-        user_text = transcription.text
-        st.info(f"🗣️ آپ نے کہا: {user_text}")
-        
-        prompt = f"""
-        You are an Urdu Retail Assistant. Extract data for a '{task_type}' operation.
-        Available Items in shop: {valid_items}
-        User said: "{user_text}"
-        
-        Return ONLY a raw JSON object (no markdown, no backticks). Format:
-        {{
-            "item_name": "Closest exact matching name from Available Items (or 'Unknown')",
-            "quantity": float or int (default to 1 if not mentioned),
-            "price": float or int (if explicitly mentioned, else null)
-        }}
-        """
-        
-        # Try latest model first, fallback to stable models if needed
-        try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            response = model.generate_content(prompt)
-        except:
-            try:
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(prompt)
-            except:
-                model = genai.GenerativeModel('gemini-pro')
-                response = model.generate_content(prompt)
-
-        raw_json = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(raw_json)
-    except Exception as e:
-        st.error(f"Voice Error: {e}")
-        return None
 
 
 # --- 5. LOGIN SYSTEM WITH PERSISTENCE ---
@@ -441,47 +376,6 @@ else:
             df_inv['Quantity'] = pd.to_numeric(df_inv['Quantity'], errors='coerce').fillna(0)
             available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
             
-            # --- 🎙️ AI VOICE ASSISTANT FOR SALES ---
-            st.markdown("### 🎙️ Smart Voice Billing")
-            st.info("مائیک پر کلک کریں اور بولیں (مثال: 'پشاوری 20 انچ 2 پیس 500 کے سیل کیے')")
-            
-            audio_bytes_pos = audio_recorder(text="Tap to Speak", recording_color="#FF416C", neutral_color="#1A2980", icon_name="microphone", icon_size="2x", key="pos_audio")
-            
-            if audio_bytes_pos and st.session_state.get('last_audio_pos') != audio_bytes_pos:
-                st.session_state['last_audio_pos'] = audio_bytes_pos
-                with st.spinner("AI پروسیس کر رہا ہے..."):
-                    ai_data = process_voice_command(audio_bytes_pos, available_items, task_type="sell")
-                    if ai_data and ai_data.get("item_name") in available_items:
-                        item_n = ai_data["item_name"]
-                        qty_n = float(ai_data.get("quantity", 1))
-                        price_n = float(ai_data["price"]) if ai_data.get("price") else None
-                        
-                        item_data = df_inv[df_inv['Item Name'] == item_n].iloc[0]
-                        current_qty = float(item_data['Quantity'])
-                        unit = str(item_data['Unit']) if 'Unit' in item_data else "Pcs"
-                        buy_price = float(item_data['Purchased price'])
-                        
-                        if price_n is None:
-                            st.warning(f"براہ کرم {item_n} کی قیمت بھی بولیں!")
-                        elif qty_n > current_qty:
-                            st.error(f"اسٹاک کم ہے! صرف {current_qty} {unit} موجود ہیں۔")
-                        else:
-                            profit = (price_n - buy_price) * qty_n
-                            st.session_state.cart.append({
-                                "Item Name": item_n,
-                                "Qty": qty_n,
-                                "Unit": unit,
-                                "Buy Price": buy_price,
-                                "Sell Price": price_n,
-                                "Total Profit": profit,
-                                "Total Bill": price_n * qty_n
-                            })
-                            st.success(f"🎙️ آواز سے شامل ہوا: {qty_n} {unit} {item_n} کارٹ میں ڈال دیا گیا!")
-                    else:
-                        st.error("آئٹم سمجھ نہیں آیا یا اسٹاک میں موجود نہیں۔")
-
-            st.divider()
-
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
                 st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
@@ -632,49 +526,12 @@ else:
     # ==========================================
     elif menu == "📦 Add Item (Inventory)":
         df_inv = get_data_cached("Inventory")
-        existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
         
-        # --- 🎙️ AI VOICE ASSISTANT FOR INVENTORY ---
-        st.markdown("### 🎙️ Voice Restock")
-        st.info("مائیک پر کلک کریں اور بولیں (مثال: 'پشاوری 20 انچ 50 پیسز 350 روپے کے حساب سے خریدے')")
-        
-        audio_bytes_inv = audio_recorder(text="Tap to Speak", recording_color="#FF416C", neutral_color="#1A2980", icon_name="microphone", icon_size="2x", key="inv_audio")
-        
-        if audio_bytes_inv and st.session_state.get('last_audio_inv') != audio_bytes_inv:
-            st.session_state['last_audio_inv'] = audio_bytes_inv
-            with st.spinner("AI پروسیس کر رہا ہے..."):
-                ai_data = process_voice_command(audio_bytes_inv, existing_items, task_type="add")
-                if ai_data and ai_data.get("item_name") in existing_items:
-                    item_n = ai_data["item_name"]
-                    qty_n = float(ai_data.get("quantity", 1))
-                    price_n = float(ai_data["price"]) if ai_data.get("price") else None
-                    
-                    if price_n is None:
-                        st.warning(f"براہ کرم {item_n} کی خریدی ہوئی قیمت بھی بولیں!")
-                    else:
-                        idx = df_inv.index[df_inv['Item Name'] == item_n].tolist()[0]
-                        current_qty = float(df_inv.iloc[idx]['Quantity'])
-                        current_unit = str(df_inv.iloc[idx]['Unit']) if 'Unit' in df_inv.columns else "Pcs"
-                        
-                        new_qty = current_qty + qty_n
-                        remarks = "Out of Stock" if new_qty <= 0 else ("Low Stock" if new_qty <= 5 else "Available")
-                        row_index = idx + 2 
-                        
-                        inv_ws = sheet.worksheet("Inventory")
-                        inv_ws.update(range_name=f"C{row_index}:F{row_index}", values=[[price_n, new_qty, current_unit, remarks]])
-                        st.success(f"🎙️ آواز سے شامل ہوا: '{item_n}' میں {qty_n} کا اضافہ! نئی مقدار: {new_qty} {current_unit}.")
-                        clear_cache()
-                        time.sleep(2)
-                        st.rerun()
-                else:
-                    st.error("آئٹم سمجھ نہیں آیا یا انوینٹری میں موجود نہیں۔")
-
-        st.divider()
-
         action_type = st.radio("What do you want to do?", ["🔄 Restock Existing Item", "📦 Add Completely New Item"], horizontal=True)
         st.divider()
         
         if action_type == "🔄 Restock Existing Item":
+            existing_items = df_inv['Item Name'].tolist() if not df_inv.empty else []
             if not existing_items:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
