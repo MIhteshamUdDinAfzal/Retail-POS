@@ -28,10 +28,11 @@ st.markdown("""
     :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
     .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
     
-    /* Hide Streamlit Branding */
+    /* Hide Streamlit Branding and Top Right Toolbar Completely */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
+    [data-testid="stToolbar"], [data-testid="stActionElements"], .stAppToolbar { display: none !important; visibility: hidden !important; }
     
     /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
@@ -44,37 +45,50 @@ st.markdown("""
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
     /* =========================================
-       🍔 100% WORKING MENU BUTTON (Replaces Arrows)
+       🍔 EXACT MENU BUTTON FIX (Replaces Arrows only for Sidebar Toggle)
        ========================================= */
-    /* Hide the original SVG icon everywhere in the header */
-    header[data-testid="stHeader"] button svg { 
-        display: none !important; 
-    }
-    /* Inject beautiful ☰ Menu button */
-    header[data-testid="stHeader"] button::before {
-        content: "☰ Menu" !important;
-        font-size: 16px !important;
-        font-weight: 900 !important;
-        color: #FF416C !important;
+    /* Target strictly the sidebar Open button */
+    [data-testid="collapsedControl"] button {
         background-color: #ffffff !important;
         border: 2px solid #FF416C !important;
         border-radius: 8px !important;
-        padding: 6px 12px !important;
-        display: block !important;
+        padding: 5px 15px !important;
+        width: auto !important; 
+        height: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
     }
     
+    /* Completely hide the original SVG arrows */
+    [data-testid="collapsedControl"] svg {
+        display: none !important;
+    }
+    
+    /* Inject the new ☰ Menu text */
+    [data-testid="collapsedControl"] button::after {
+        content: "☰ Menu" !important;
+        color: #FF416C !important;
+        font-weight: 900 !important;
+        font-size: 16px !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
     /* Inject ✖ Close button inside the sidebar */
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg { 
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg,
+    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] svg { 
         display: none !important; 
     }
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before {
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before,
+    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"]::before {
         content: "✖ Close" !important;
         font-size: 15px !important;
         font-weight: 900 !important;
         color: #FFD700 !important;
-        border: 1px solid #FFD700 !important;
-        padding: 5px 10px !important;
+        background-color: rgba(255,255,255,0.1) !important;
+        padding: 5px 15px !important;
         border-radius: 5px !important;
         display: block !important;
     }
@@ -223,28 +237,24 @@ else:
 
     menu = st.session_state["active_menu"]
     
-    # 🟢 100% GUARANTEED JS LOOP TO CLOSE SIDEBAR ON MOBILE 🟢
+    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (BULLETPROOF HACK) 🟢
     if st.session_state.get("close_sidebar", False):
         dynamic_id = datetime.now().timestamp()
         components.html(
             f"""
             <script>
                 // Run ID: {dynamic_id}
-                var attempts = 0;
-                var closeInterval = setInterval(function() {{
-                    var parentDoc = window.parent.document;
-                    // Find the close button by aria-label
-                    var closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
-                    if (closeBtn) {{
-                        closeBtn.click();
-                        clearInterval(closeInterval); // Stop once clicked
+                setTimeout(function() {{
+                    const doc = window.parent.document;
+                    // Find the close button
+                    const closeBtns = doc.querySelectorAll('button[aria-label="Close sidebar"], [data-testid="stSidebarCollapseButton"]');
+                    if (closeBtns && closeBtns.length > 0) {{
+                        closeBtns[0].click();
+                    }} else {{
+                        // Fallback: Dispatch Escape Key to force close modal
+                        doc.dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape', bubbles: true}}));
                     }}
-                    attempts++;
-                    // Try for exactly 1 second (10 times x 100ms) to ensure DOM is ready
-                    if (attempts > 10) {{
-                        clearInterval(closeInterval);
-                    }}
-                }}, 100);
+                }}, 200); // 200ms delay to allow DOM render
             </script>
             """,
             height=0, width=0
