@@ -13,7 +13,7 @@ st.markdown("""
     /* Hide Streamlit Branding but KEEP the sidebar toggle button */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {background: transparent !important;} /* Header is transparent instead of hidden */
+    header {background: transparent !important;}
     
     /* 🌟 Main App Background */
     .stApp {
@@ -27,14 +27,6 @@ st.markdown("""
     }
     [data-testid="stSidebar"] * {
         color: #ffffff !important;
-    }
-    
-    /* Sidebar Radio Buttons Styling */
-    .stRadio > div {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 10px 15px;
-        border-radius: 12px;
-        backdrop-filter: blur(5px);
     }
     
     /* 📊 Beautiful Metric Cards (Dashboard) */
@@ -62,7 +54,9 @@ st.markdown("""
         color: #1A2980 !important;
     }
     
-    /* 🖱️ Stunning 3D Buttons */
+    /* =========================================
+       🖱️ STUNNING MAIN APP BUTTONS (GRADIENT)
+       ========================================= */
     .stButton>button {
         background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
         color: white !important;
@@ -78,6 +72,51 @@ st.markdown("""
     .stButton>button:hover {
         transform: scale(1.05) translateY(-3px) !important;
         box-shadow: 0 8px 25px rgba(255, 75, 43, 0.6) !important;
+    }
+    
+    /* =========================================
+       📲 SIDEBAR MENU BUTTONS (GLASSMORPHISM)
+       ========================================= */
+    [data-testid="stSidebar"] .stButton>button {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        padding: 12px 15px !important;
+        box-shadow: none !important;
+        margin-bottom: 5px !important;
+        width: 100% !important;
+    }
+    /* Align Text to Left inside Sidebar Buttons */
+    [data-testid="stSidebar"] .stButton>button div,
+    [data-testid="stSidebar"] .stButton>button div p {
+        justify-content: flex-start !important;
+        text-align: left !important;
+        width: 100%;
+        font-weight: 500 !important;
+    }
+    [data-testid="stSidebar"] .stButton>button:hover {
+        background: rgba(255, 255, 255, 0.15) !important;
+        transform: translateX(5px) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    }
+    /* ACTIVE/SELECTED SIDEBAR BUTTON */
+    [data-testid="stSidebar"] .stButton>button[data-testid="baseButton-primary"],
+    [data-testid="stSidebar"] .stButton>button[kind="primary"] {
+        background: rgba(255, 255, 255, 0.25) !important;
+        border-left: 5px solid #FFD700 !important;
+        border-right: 1px solid rgba(255,255,255,0.1) !important;
+        border-top: 1px solid rgba(255,255,255,0.1) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+        transform: scale(1) !important; 
+    }
+    [data-testid="stSidebar"] .stButton>button[data-testid="baseButton-primary"]:hover,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:hover {
+        transform: translateX(5px) !important; 
     }
     
     /* 🗂️ Beautiful Containers and Forms */
@@ -172,7 +211,6 @@ except:
 USERS = {
     "admin": "admin123"
 }
-# Mapping username to Shop Name for Sidebar
 SHOP_INFO = {
     "admin": "Ihtesham Bartan and Karakari Store"
 }
@@ -198,30 +236,47 @@ def login():
                 else:
                     st.error("Invalid Username or Password")
 
+# Initialize Session States
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
+
+if "active_menu" not in st.session_state:
+    st.session_state["active_menu"] = "📊 Dashboard"
+
+def change_menu(new_menu):
+    st.session_state["active_menu"] = new_menu
 
 # --- 5. MAIN APP NAVIGATION & LOGIC ---
 if not st.session_state["logged_in"]:
     login()
 else:
-    # --- PROFESSIONAL SIDEBAR ---
+    # --- PROFESSIONAL SIDEBAR WITH CUSTOM BUTTONS ---
     with st.sidebar:
         shop_title = SHOP_INFO.get(st.session_state['username'], "Your Store")
         st.markdown(f"### 🏪 Welcome to\n## <span style='color:#FFD700;'>{shop_title}</span>", unsafe_allow_html=True)
         st.divider()
         st.markdown("### 📌 Main Menu")
         
-        menu = st.radio(
-            "Go to:",
-            ["📊 Dashboard", "🛒 Sell Item (POS)", "📦 Add Item (Inventory)", "📓 Khata (Credit)", "💸 Cash Outflow", "📝 Customer Demands"],
-            label_visibility="collapsed"
-        )
+        menu_options = [
+            "📊 Dashboard", 
+            "🛒 Sell Item (POS)", 
+            "📦 Add Item (Inventory)", 
+            "📓 Khata (Credit)", 
+            "💸 Cash Outflow", 
+            "📝 Customer Demands"
+        ]
+        
+        # Create clickable buttons instead of radio
+        for option in menu_options:
+            btn_type = "primary" if st.session_state["active_menu"] == option else "secondary"
+            st.button(option, on_click=change_menu, args=(option,), type=btn_type, use_container_width=True)
         
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in"] = False
             st.rerun()
+
+    menu = st.session_state["active_menu"]
 
     # --- MAIN CONTENT AREA ---
     st.title(f"✨ {menu}")
