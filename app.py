@@ -21,32 +21,23 @@ st.markdown("""
     }
     
     /* =========================================
-       📱 MOBILE DARK MODE FIX (Force Dark Text on Light Backgrounds)
+       📱 MOBILE DARK MODE FIX
        ========================================= */
-    /* General text inside the main app body */
     .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
         color: #222222 !important;
     }
-    
-    /* Table text color fix */
     table th, table td {
         color: #222222 !important;
     }
-    
-    /* Fix specifically for Metric Cards (Revenue, Profit numbers) */
     div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricLabel"] > div > p {
         color: #FF416C !important;
     }
     div[data-testid="stMetricValue"] > div {
         color: #1A2980 !important;
     }
-    
-    /* Protect Sidebar text (keep it white) */
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] div, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: #ffffff !important;
     }
-    
-    /* Keep Button text white */
     .stButton>button, .stButton>button p, .stButton>button span {
         color: white !important;
     }
@@ -84,8 +75,6 @@ st.markdown("""
         font-weight: 900 !important;
         white-space: normal !important; 
     }
-    
-    /* Mobile Adjustments for extra small screens */
     @media (max-width: 768px) {
         div[data-testid="metric-container"] {
             padding: 15px;
@@ -163,7 +152,7 @@ st.markdown("""
         border-radius: 10px !important;
         border: 1px solid #ced4da !important;
         transition: all 0.3s;
-        color: #222222 !important; /* Force text dark inside inputs */
+        color: #222222 !important;
     }
     .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
         border-color: #26D0CE !important;
@@ -247,7 +236,6 @@ SHOP_INFO = {
     "admin": "Ihtesham Bartan and Karakari Store"
 }
 
-# Check URL Query Params to remember login state after refresh
 if "logged_in" not in st.session_state:
     if st.query_params.get("logged_in") == "true":
         st.session_state["logged_in"] = True
@@ -277,7 +265,6 @@ def login():
                 if username in USERS and USERS[username] == password:
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
-                    # Save to URL to survive refresh
                     st.query_params["logged_in"] = "true"
                     st.query_params["user"] = username
                     st.success("Login Successful! Redirecting...")
@@ -290,7 +277,6 @@ def login():
 if not st.session_state["logged_in"]:
     login()
 else:
-    # --- PROFESSIONAL SIDEBAR WITH CUSTOM BUTTONS ---
     with st.sidebar:
         shop_title = SHOP_INFO.get(st.session_state['username'], "Your Store")
         st.markdown(f"### 🏪 Welcome to\n## <span style='color:#FFD700;'>{shop_title}</span>", unsafe_allow_html=True)
@@ -306,7 +292,6 @@ else:
             "📝 Customer Demands"
         ]
         
-        # Create clickable buttons instead of radio
         for option in menu_options:
             btn_type = "primary" if st.session_state["active_menu"] == option else "secondary"
             st.button(option, on_click=change_menu, args=(option,), type=btn_type, use_container_width=True)
@@ -319,7 +304,6 @@ else:
 
     menu = st.session_state["active_menu"]
 
-    # --- MAIN CONTENT AREA ---
     st.title(f"✨ {menu}")
     st.markdown("---")
 
@@ -447,8 +431,13 @@ else:
             
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
+                
+                # 🔴 LIVE SEARCH BOX (Triggers Keyboard on Mobile!)
+                search_term_pos = st.text_input("🔍 Live Search Item (Mobile Friendly)", placeholder="Type item name here to filter list...", key="search_pos")
+                filtered_pos = [item for item in available_items if search_term_pos.lower() in item.lower()] if search_term_pos else available_items
+
                 with st.form("add_to_cart_form"):
-                    selected_item = st.selectbox("🔍 Search & Select Item", available_items, index=None, placeholder="Choose an item...")
+                    selected_item = st.selectbox("📌 Select Item from List", filtered_pos, index=None, placeholder="Choose an item...")
                     
                     c1, c2 = st.columns(2)
                     qty_sold = c1.number_input("Quantity / Weight Sold", min_value=0.01, value=None, step=1.0, format="%.2f", placeholder="Enter quantity...")
@@ -599,7 +588,11 @@ else:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
                 with st.container():
-                    selected_option = st.selectbox("🔍 Search & Select Item", existing_items, index=None, placeholder="Choose an item from the list...")
+                    # 🔴 LIVE SEARCH BOX (Triggers Keyboard on Mobile!)
+                    search_term_inv = st.text_input("🔍 Live Search Item (Mobile Friendly)", placeholder="Type item name here to filter list...", key="search_inv")
+                    filtered_inv = [item for item in existing_items if search_term_inv.lower() in item.lower()] if search_term_inv else existing_items
+
+                    selected_option = st.selectbox("📌 Select Item from List", filtered_inv, index=None, placeholder="Choose an item...")
                     
                     default_price = None 
                     current_unit = "Pcs"
