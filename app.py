@@ -5,6 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
+import altair as alt
 
 # ==========================================
 # 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
@@ -293,17 +294,26 @@ else:
         col2.metric("📈 Today's Total Profit", f"RS {today_profit:,.2f}")
         col3.metric("💸 Today's Cash Outflow", f"RS {today_outflow:,.2f}")
         
-        # --- 📊 NEW: SALES & PROFIT TREND ANALYTICS (CHARTS) ---
+        # --- 📊 PROFESSIONAL GROUPED BAR CHART (ALTAIR) ---
         st.write("")
         st.subheader("📈 Sales & Profit Trend Analytics")
         if not df_sales.empty and 'Date' in df_sales.columns and 'Total Revenue' in df_sales.columns:
-            # Group by Date
             df_trend = df_sales.groupby('Date')[['Total Revenue', 'Total Profit']].sum().reset_index()
             df_trend = df_trend.sort_values('Date')
-            df_trend.set_index('Date', inplace=True)
             
-            # Display Chart
-            st.bar_chart(df_trend[['Total Revenue', 'Total Profit']], color=["#1A2980", "#FF416C"])
+            df_melted = df_trend.melt('Date', var_name='Metric', value_name='Amount')
+            chart = alt.Chart(df_melted).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+                x=alt.X('Date:O', title='Date', axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('Amount:Q', title='Amount (RS)'),
+                color=alt.Color('Metric:N', scale=alt.Scale(domain=['Total Revenue', 'Total Profit'], range=['#1A2980', '#FF416C']), legend=alt.Legend(title="")),
+                xOffset='Metric:N',
+                tooltip=['Date', 'Metric', 'Amount']
+            ).properties(
+                height=260
+            ).configure_view(
+                stroke=None
+            )
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.info("Not enough sales data available for trend analysis yet.")
         
