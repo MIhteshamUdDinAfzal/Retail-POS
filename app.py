@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # --- 1. SETUP & PAGE CONFIG (Must be first) ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. VIBRANT, PROFESSIONAL & RESPONSIVE CUSTOM CSS ---
+# --- 2. VIBRANT, PROFESSIONAL & AGGRESSIVE MOBILE CSS ---
 st.markdown("""
     <style>
     /* Hide Streamlit Branding but KEEP the sidebar toggle button */
@@ -15,31 +15,78 @@ st.markdown("""
     footer {visibility: hidden;}
     header {background: transparent !important;}
     
-    /* 🌟 Main App Background */
-    .stApp {
-        background-color: #f4f7f6;
+    /* =========================================
+       📱 AGGRESSIVE MOBILE DARK MODE FIX (FORCE LIGHT MODE)
+       ========================================= */
+    /* Main App Background */
+    .stApp, .main {
+        background-color: #f4f7f6 !important;
     }
     
-    /* =========================================
-       📱 MOBILE DARK MODE FIX
-       ========================================= */
+    /* General Text formatting */
     .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
         color: #222222 !important;
     }
-    table th, table td {
-        color: #222222 !important;
+    
+    /* Form Backgrounds */
+    [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        background-color: #ffffff !important;
+        border-radius: 15px !important;
+        border: 1px solid #ced4da !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
     }
-    div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricLabel"] > div > p {
-        color: #FF416C !important;
+    
+    /* TEXT INPUTS & NUMBER INPUTS */
+    div[data-baseweb="input"] { background-color: #ffffff !important; }
+    div[data-baseweb="input"] > div { 
+        background-color: #ffffff !important; 
+        border-radius: 8px !important;
+        border: 1px solid #aaa !important;
     }
-    div[data-testid="stMetricValue"] > div {
-        color: #1A2980 !important;
+    div[data-baseweb="input"] input {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+        -webkit-text-fill-color: #000000 !important; /* Defeats mobile force-dark */
+        font-weight: 500 !important;
     }
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] div, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    
+    /* SELECTBOX (DROPDOWN) MAIN BOX */
+    div[data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-radius: 8px !important;
+        border: 1px solid #aaa !important;
+    }
+    div[data-baseweb="select"] span {
+        color: #000000 !important;
+        font-weight: 500 !important;
+    }
+    
+    /* SELECTBOX DROPDOWN LIST (POPOVER) */
+    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-testid="stSelectboxVirtualDropdown"] {
+        background-color: #ffffff !important;
+    }
+    li[role="option"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    li[role="option"] span {
+        color: #000000 !important;
+        font-weight: 600 !important;
+    }
+    li[role="option"]:hover {
+        background-color: #f0f0f0 !important;
+    }
+    
+    /* Sidebar Fixes (Keep it colored/white text) */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: #ffffff !important;
     }
-    .stButton>button, .stButton>button p, .stButton>button span {
-        color: white !important;
+    
+    /* Tables */
+    table th, table td {
+        color: #000000 !important;
+        background-color: #ffffff !important;
     }
     /* ========================================= */
     
@@ -49,7 +96,7 @@ st.markdown("""
         box-shadow: 5px 0 15px rgba(0,0,0,0.1);
     }
     
-    /* 📊 Beautiful Metric Cards (Dashboard) - MOBILE RESPONSIVE */
+    /* 📊 Metric Cards (Dashboard) - MOBILE RESPONSIVE */
     div[data-testid="metric-container"] {
         background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
         border: none;
@@ -57,22 +104,19 @@ st.markdown("""
         padding: 20px;
         box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
         border-top: 6px solid #FF416C; 
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
         width: 100% !important;
         box-sizing: border-box !important;
         overflow-wrap: break-word !important; 
     }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.15);
-    }
     div[data-testid="metric-container"] > div:nth-child(1) {
         font-size: 16px !important;
         font-weight: 700 !important;
+        color: #FF416C !important;
     }
     div[data-testid="metric-container"] > div:nth-child(2) {
         font-size: 28px !important;
         font-weight: 900 !important;
+        color: #1A2980 !important;
         white-space: normal !important; 
     }
     @media (max-width: 768px) {
@@ -85,9 +129,10 @@ st.markdown("""
         }
     }
     
-    /* 🖱️ Stunning Main App Buttons (Gradient) */
+    /* 🖱️ Main App Buttons (Gradient) */
     .stButton>button {
         background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
+        color: white !important;
         border: none !important;
         border-radius: 30px !important;
         padding: 12px 25px !important;
@@ -95,11 +140,9 @@ st.markdown("""
         font-weight: 700 !important;
         letter-spacing: 1px;
         box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
-        transition: all 0.3s ease !important;
     }
-    .stButton>button:hover {
-        transform: scale(1.05) translateY(-3px) !important;
-        box-shadow: 0 8px 25px rgba(255, 75, 43, 0.6) !important;
+    .stButton>button p {
+        color: white !important;
     }
     
     /* 📲 Sidebar Menu Buttons */
@@ -110,60 +153,20 @@ st.markdown("""
         padding: 12px 15px !important;
         box-shadow: none !important;
         margin-bottom: 5px !important;
-        width: 100% !important;
     }
-    [data-testid="stSidebar"] .stButton>button div,
     [data-testid="stSidebar"] .stButton>button div p {
-        justify-content: flex-start !important;
         text-align: left !important;
-        width: 100%;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
     }
-    [data-testid="stSidebar"] .stButton>button:hover {
-        background: rgba(255, 255, 255, 0.15) !important;
-        transform: translateX(5px) !important;
-        border-color: rgba(255, 255, 255, 0.3) !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-    }
-    /* ACTIVE/SELECTED SIDEBAR BUTTON */
+    /* ACTIVE SIDEBAR BUTTON */
     [data-testid="stSidebar"] .stButton>button[data-testid="baseButton-primary"],
     [data-testid="stSidebar"] .stButton>button[kind="primary"] {
         background: rgba(255, 255, 255, 0.25) !important;
         border-left: 5px solid #FFD700 !important;
-        border-right: 1px solid rgba(255,255,255,0.1) !important;
-        border-top: 1px solid rgba(255,255,255,0.1) !important;
-        border-bottom: 1px solid rgba(255,255,255,0.1) !important;
-        backdrop-filter: blur(10px) !important;
-        font-weight: 800 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-        transform: scale(1) !important; 
-    }
-    
-    /* 🗂️ Beautiful Containers and Forms */
-    [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
-        background-color: white !important;
-        border-radius: 15px !important;
-        border: 1px solid #e1e4e8 !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
-    }
-    
-    /* ✨ Input Fields Glow Effect */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div {
-        border-radius: 10px !important;
-        border: 1px solid #ced4da !important;
-        transition: all 0.3s;
-        color: #222222 !important;
-    }
-    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
-        border-color: #26D0CE !important;
-        box-shadow: 0 0 8px rgba(38, 208, 206, 0.5) !important;
-    }
-    
-    /* 📝 Headings Gradient Text */
-    h1, h2, h3 {
-        color: #1A2980 !important;
         font-weight: 800 !important;
     }
+    
+    h1, h2, h3 { color: #1A2980 !important; font-weight: 800 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -432,9 +435,9 @@ else:
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
                 
-                # 🔴 LIVE SEARCH BOX (Triggers Keyboard on Mobile!)
+                # 🔴 LIVE SEARCH BOX (Triggers Keyboard on Mobile & filters spaces correctly)
                 search_term_pos = st.text_input("🔍 Live Search Item (Mobile Friendly)", placeholder="Type item name here to filter list...", key="search_pos")
-                filtered_pos = [item for item in available_items if search_term_pos.lower() in item.lower()] if search_term_pos else available_items
+                filtered_pos = [item for item in available_items if search_term_pos.strip().lower() in item.lower()] if search_term_pos else available_items
 
                 with st.form("add_to_cart_form"):
                     selected_item = st.selectbox("📌 Select Item from List", filtered_pos, index=None, placeholder="Choose an item...")
@@ -588,9 +591,9 @@ else:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
                 with st.container():
-                    # 🔴 LIVE SEARCH BOX (Triggers Keyboard on Mobile!)
+                    # 🔴 LIVE SEARCH BOX
                     search_term_inv = st.text_input("🔍 Live Search Item (Mobile Friendly)", placeholder="Type item name here to filter list...", key="search_inv")
-                    filtered_inv = [item for item in existing_items if search_term_inv.lower() in item.lower()] if search_term_inv else existing_items
+                    filtered_inv = [item for item in existing_items if search_term_inv.strip().lower() in item.lower()] if search_term_inv else existing_items
 
                     selected_option = st.selectbox("📌 Select Item from List", filtered_inv, index=None, placeholder="Choose an item...")
                     
