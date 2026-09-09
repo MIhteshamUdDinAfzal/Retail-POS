@@ -238,14 +238,11 @@ else:
                 // Run ID: {dynamic_id}
                 const triggerClose = () => {{
                     const parentDoc = window.parent.document;
-                    // Find any button with label 'Close sidebar'
                     const closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
                     if (closeBtn) {{
                         closeBtn.click();
                     }}
                 }};
-                
-                // Multi-fire approach: Try immediately, then 100ms, then 500ms to ensure it works on all mobiles
                 triggerClose();
                 setTimeout(triggerClose, 100);
                 setTimeout(triggerClose, 500);
@@ -295,6 +292,20 @@ else:
         col1.metric("💰 Today's Total Revenue", f"RS {today_sales:,.2f}")
         col2.metric("📈 Today's Total Profit", f"RS {today_profit:,.2f}")
         col3.metric("💸 Today's Cash Outflow", f"RS {today_outflow:,.2f}")
+        
+        # --- 📊 NEW: SALES & PROFIT TREND ANALYTICS (CHARTS) ---
+        st.write("")
+        st.subheader("📈 Sales & Profit Trend Analytics")
+        if not df_sales.empty and 'Date' in df_sales.columns and 'Total Revenue' in df_sales.columns:
+            # Group by Date
+            df_trend = df_sales.groupby('Date')[['Total Revenue', 'Total Profit']].sum().reset_index()
+            df_trend = df_trend.sort_values('Date')
+            df_trend.set_index('Date', inplace=True)
+            
+            # Display Chart
+            st.bar_chart(df_trend[['Total Revenue', 'Total Profit']], color=["#1A2980", "#FF416C"])
+        else:
+            st.info("Not enough sales data available for trend analysis yet.")
         
         st.write("")
         st.subheader("📥 Download Financial Reports")
