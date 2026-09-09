@@ -1,115 +1,63 @@
+import os
 import streamlit as st
+import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- 1. SETUP & PAGE CONFIG (Must be first) ---
+# ==========================================
+# 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
+# ==========================================
+# یہ کوڈ خود بخود ایک سیٹنگ فائل بنائے گا جو ایپ کو ہمیشہ لائٹ موڈ پر لاک کر دے گی
+if not os.path.exists('.streamlit'):
+    os.makedirs('.streamlit')
+config_path = '.streamlit/config.toml'
+if not os.path.exists(config_path):
+    with open(config_path, 'w') as f:
+        f.write('[theme]\nbase="light"\nprimaryColor="#FF416C"\n')
+
+# --- 2. SETUP & PAGE CONFIG ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. VIBRANT, PROFESSIONAL & AGGRESSIVE MOBILE CSS ---
+# --- 3. VIBRANT & RESPONSIVE CSS ---
 st.markdown("""
     <style>
-    /* =========================================
-       📱 EXTREME FORCE LIGHT MODE (Fixes Mobile Black Screens/Tables)
-       ========================================= */
-    :root, html, body {
-        color-scheme: light !important;
-        background-color: #f4f7f6 !important;
-    }
-    
-    .stApp, .main, div[data-testid="stAppViewContainer"] {
-        background-color: #f4f7f6 !important;
-        color: #222222 !important;
-    }
-    
     /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
     
-    /* Force General Text to Black */
-    p, span, div, h1, h2, h3, h4, h5, h6, label, li {
-        color: #222222 !important;
-    }
+    /* Ensure Everything stays Light */
+    .stApp, .main { background-color: #f4f7f6 !important; }
+    p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
     
-    /* EXCEPTIONS: Keep Sidebar, Buttons, and Metric Cards Colored */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #ffffff !important;
-    }
-    .stButton > button * {
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-    }
-    div[data-testid="stDownloadButton"] > button * {
-        color: #ffffff !important;
-        -webkit-text-fill-color: #ffffff !important;
-    }
+    /* Keep Sidebar & Buttons Colored */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
+    .stButton > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+    div[data-testid="stDownloadButton"] > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
-    /* =========================================
-       📝 FIX TABLES, FORMS & INPUTS (Force White BG & Black Text)
-       ========================================= */
-    table, th, td, tr, tbody, thead {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border-color: #dddddd !important;
-    }
-    
+    /* Tables & Inputs */
+    table, th, td, tr, tbody, thead { background-color: #ffffff !important; color: #000000 !important; }
     [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
-        background-color: #ffffff !important;
-        border-radius: 15px !important;
-        border: 1px solid #ced4da !important;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
+        background-color: #ffffff !important; border-radius: 15px !important; box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
     }
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #ffffff !important; border-radius: 8px !important; border: 1px solid #aaa !important; }
+    input, select, textarea, div[data-baseweb="select"] span { color: #000000 !important; -webkit-text-fill-color: #000000 !important; font-weight: 600 !important; }
+    div[data-baseweb="popover"], ul[role="listbox"], li[role="option"] { background-color: #ffffff !important; color: #000000 !important; }
+    li[role="option"]:hover { background-color: #e2e6ea !important; }
     
-    /* Inputs & Selectbox */
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { 
-        background-color: #ffffff !important; 
-        border-radius: 8px !important;
-        border: 1px solid #aaa !important;
-    }
-    input, select, textarea, div[data-baseweb="select"] span {
-        color: #000000 !important;
-        background-color: #ffffff !important;
-        -webkit-text-fill-color: #000000 !important; 
-        font-weight: 600 !important;
-    }
+    /* Sidebar */
+    [data-testid="stSidebar"] { background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%); box-shadow: 5px 0 15px rgba(0,0,0,0.1); }
     
-    /* Dropdown Popover List */
-    div[data-baseweb="popover"], ul[role="listbox"], li[role="option"] {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-    li[role="option"]:hover {
-        background-color: #e2e6ea !important;
-    }
-    
-    /* =========================================
-       🎨 UI BEAUTIFICATION (Buttons & Sidebar)
-       ========================================= */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%);
-        box-shadow: 5px 0 15px rgba(0,0,0,0.1);
-    }
-    
+    /* Metric Cards */
     div[data-testid="metric-container"] {
         background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
-        border: none;
-        border-radius: 15px;
-        padding: 20px;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
-        border-top: 6px solid #FF416C; 
-        width: 100% !important;
-        box-sizing: border-box !important;
-        overflow-wrap: break-word !important; 
+        border-radius: 15px; padding: 20px; box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
+        border-top: 6px solid #FF416C; width: 100% !important; box-sizing: border-box !important; overflow-wrap: break-word !important; 
     }
-    div[data-testid="metric-container"]:hover {
-        transform: translateY(-5px);
-        box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.15);
-    }
-    div[data-testid="metric-container"] > div:nth-child(1) { font-size: 16px !important; font-weight: 700 !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { font-size: 28px !important; font-weight: 900 !important; white-space: normal !important; }
     
     @media (max-width: 768px) {
@@ -117,53 +65,27 @@ st.markdown("""
         div[data-testid="metric-container"] > div:nth-child(2) { font-size: 24px !important; }
     }
     
-    /* Main App Red/Orange Buttons */
+    /* Buttons */
     .stButton>button {
         background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
-        border: none !important;
-        border-radius: 30px !important;
-        padding: 12px 25px !important;
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        letter-spacing: 1px;
-        box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
+        border-radius: 30px !important; padding: 12px 25px !important; font-weight: 700 !important; box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
     }
-    
-    /* 🌟 DOWNLOAD BUTTONS FIX (Beautiful Blue Gradient) */
     div[data-testid="stDownloadButton"] > button {
-        background: linear-gradient(to right, #1A2980, #26D0CE) !important;
-        border-radius: 30px !important;
-        border: none !important;
-        box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important;
-        width: 100% !important;
+        background: linear-gradient(to right, #1A2980, #26D0CE) !important; border-radius: 30px !important; box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important; width: 100% !important;
     }
     
-    /* Sidebar Menu Buttons */
+    /* Sidebar Buttons */
     [data-testid="stSidebar"] .stButton>button {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 12px !important;
-        padding: 12px 15px !important;
-        box-shadow: none !important;
-        margin-bottom: 5px !important;
+        background: rgba(255, 255, 255, 0.05) !important; border-radius: 12px !important; margin-bottom: 5px !important;
     }
-    [data-testid="stSidebar"] .stButton>button div p {
-        text-align: left !important;
-        font-weight: 600 !important;
-    }
-    /* ACTIVE SIDEBAR BUTTON */
-    [data-testid="stSidebar"] .stButton>button[data-testid="baseButton-primary"],
     [data-testid="stSidebar"] .stButton>button[kind="primary"] {
-        background: rgba(255, 255, 255, 0.25) !important;
-        border-left: 5px solid #FFD700 !important;
-        font-weight: 800 !important;
+        background: rgba(255, 255, 255, 0.25) !important; border-left: 5px solid #FFD700 !important; font-weight: 800 !important;
     }
-    
     h1, h2, h3 { font-weight: 800 !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. GOOGLE SHEETS CONNECTION & CACHING ---
+# --- 4. GOOGLE SHEETS CONNECTION & CACHING ---
 @st.cache_resource
 def init_connection():
     scopes = [
@@ -200,7 +122,6 @@ def clear_cache():
 def get_pkt_date():
     return (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d")
 
-# Safe Sheet Initialization
 try:
     inv_ws = sheet.worksheet("Inventory")
     sales_ws = sheet.worksheet("Sales")
@@ -224,7 +145,7 @@ except:
     outflow_ws = None
 
 
-# --- 4. LOGIN SYSTEM WITH PERSISTENCE ---
+# --- 5. LOGIN SYSTEM WITH PERSISTENCE ---
 USERS = {
     "admin": "admin123"
 }
@@ -242,21 +163,21 @@ if "logged_in" not in st.session_state:
 if "active_menu" not in st.session_state:
     st.session_state["active_menu"] = "📊 Dashboard"
 
+# 🟢 AUTO-CLOSE SIDEBAR LOGIC 🟢
 def change_menu(new_menu):
     st.session_state["active_menu"] = new_menu
+    st.session_state["close_sidebar"] = True
 
 def login():
     st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#1A2980, #26D0CE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #555;'>Secure Login Portal</h3>", unsafe_allow_html=True)
     st.write("")
-    
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         with st.form("login_form"):
             username = st.text_input("Username", placeholder="Enter your username")
             password = st.text_input("Password", type="password", placeholder="Enter your password")
             submit = st.form_submit_button("🔑 Login", use_container_width=True)
-            
             if submit:
                 if username in USERS and USERS[username] == password:
                     st.session_state["logged_in"] = True
@@ -269,7 +190,7 @@ def login():
                     st.error("Invalid Username or Password")
 
 
-# --- 5. MAIN APP NAVIGATION & LOGIC ---
+# --- 6. MAIN APP NAVIGATION & LOGIC ---
 if not st.session_state["logged_in"]:
     login()
 else:
@@ -299,6 +220,26 @@ else:
             st.rerun()
 
     menu = st.session_state["active_menu"]
+    
+    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE 🟢
+    if st.session_state.get("close_sidebar", False):
+        components.html(
+            """
+            <script>
+                // Simulates pressing 'Escape' which closes the mobile sidebar in Streamlit
+                window.parent.document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
+                // Fallback: Click the close button
+                const buttons = window.parent.document.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('aria-label') === 'Close sidebar') {
+                        btn.click();
+                    }
+                });
+            </script>
+            """,
+            height=0, width=0
+        )
+        st.session_state["close_sidebar"] = False
 
     st.title(f"✨ {menu}")
     st.markdown("---")
@@ -430,12 +371,10 @@ else:
                 
                 st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
                 
-                # 🔴 PURE LOGIC: Auto-Select First Filtered Item
                 search_term_pos = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_pos")
                 
                 filtered_pos = [item for item in available_items if search_term_pos.strip().lower() in item.lower()] if search_term_pos else available_items
                 
-                # Auto select index 0 if search is used and matches found, otherwise None
                 auto_index = 0 if (search_term_pos and len(filtered_pos) > 0) else None
 
                 with st.form("add_to_cart_form"):
@@ -592,7 +531,6 @@ else:
                 with st.container():
                     st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
                     
-                    # 🔴 PURE LOGIC: Auto-Select First Filtered Item
                     search_term_inv = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_inv")
                     
                     filtered_inv = [item for item in existing_items if search_term_inv.strip().lower() in item.lower()] if search_term_inv else existing_items
