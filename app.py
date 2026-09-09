@@ -1,6 +1,5 @@
 import os
 import streamlit as st
-import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
@@ -19,7 +18,7 @@ if not os.path.exists(config_path):
 # --- 2. SETUP & PAGE CONFIG ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 3. VIBRANT & CRASH-PROOF CSS ---
+# --- 3. CLEAN & STABLE CSS ---
 st.markdown("""
     <style>
     /* =========================================
@@ -28,11 +27,10 @@ st.markdown("""
     :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
     .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
     
-    /* Hide Streamlit Branding and Top Right Toolbar Completely */
+    /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
-    [data-testid="stToolbar"], [data-testid="stActionElements"], .stAppToolbar { display: none !important; visibility: hidden !important; }
     
     /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
@@ -43,55 +41,6 @@ st.markdown("""
     div[data-testid="stDownloadButton"] > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
-    
-    /* =========================================
-       🍔 EXACT MENU BUTTON FIX (Replaces Arrows only for Sidebar Toggle)
-       ========================================= */
-    /* Target strictly the sidebar Open button */
-    [data-testid="collapsedControl"] button {
-        background-color: #ffffff !important;
-        border: 2px solid #FF416C !important;
-        border-radius: 8px !important;
-        padding: 5px 15px !important;
-        width: auto !important; 
-        height: auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-    }
-    
-    /* Completely hide the original SVG arrows */
-    [data-testid="collapsedControl"] svg {
-        display: none !important;
-    }
-    
-    /* Inject the new ☰ Menu text */
-    [data-testid="collapsedControl"] button::after {
-        content: "☰ Menu" !important;
-        color: #FF416C !important;
-        font-weight: 900 !important;
-        font-size: 16px !important;
-        display: block !important;
-        visibility: visible !important;
-    }
-    
-    /* Inject ✖ Close button inside the sidebar */
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg,
-    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] svg { 
-        display: none !important; 
-    }
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before,
-    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"]::before {
-        content: "✖ Close" !important;
-        font-size: 15px !important;
-        font-weight: 900 !important;
-        color: #FFD700 !important;
-        background-color: rgba(255,255,255,0.1) !important;
-        padding: 5px 15px !important;
-        border-radius: 5px !important;
-        display: block !important;
-    }
     
     /* =========================================
        📝 FIX TABLES, FORMS & INPUTS
@@ -186,10 +135,8 @@ if "logged_in" not in st.session_state:
 if "active_menu" not in st.session_state:
     st.session_state["active_menu"] = "📊 Dashboard"
 
-# 🟢 AUTO-CLOSE SIDEBAR TRIGGER 🟢
 def change_menu(new_menu):
     st.session_state["active_menu"] = new_menu
-    st.session_state["close_sidebar"] = True
 
 def login():
     st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#1A2980, #26D0CE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
@@ -236,30 +183,6 @@ else:
             st.rerun()
 
     menu = st.session_state["active_menu"]
-    
-    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (BULLETPROOF HACK) 🟢
-    if st.session_state.get("close_sidebar", False):
-        dynamic_id = datetime.now().timestamp()
-        components.html(
-            f"""
-            <script>
-                // Run ID: {dynamic_id}
-                setTimeout(function() {{
-                    const doc = window.parent.document;
-                    // Find the close button
-                    const closeBtns = doc.querySelectorAll('button[aria-label="Close sidebar"], [data-testid="stSidebarCollapseButton"]');
-                    if (closeBtns && closeBtns.length > 0) {{
-                        closeBtns[0].click();
-                    }} else {{
-                        // Fallback: Dispatch Escape Key to force close modal
-                        doc.dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape', bubbles: true}}));
-                    }}
-                }}, 200); // 200ms delay to allow DOM render
-            </script>
-            """,
-            height=0, width=0
-        )
-        st.session_state["close_sidebar"] = False
 
     st.title(f"✨ {menu}")
     st.markdown("---")
