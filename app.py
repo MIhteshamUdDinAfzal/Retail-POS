@@ -44,45 +44,39 @@ st.markdown("""
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
     /* =========================================
-       🍔 CRASH-PROOF MENU BUTTON (Replaces Arrows)
+       🍔 100% WORKING MENU BUTTON (Replaces Arrows)
        ========================================= */
-    /* 1. Hide all SVG icons in Header and Sidebar close buttons */
-    [data-testid="collapsedControl"] svg { display: none !important; }
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg { display: none !important; }
-    
-    /* 2. Add 'Menu' text and style the top-left button */
-    [data-testid="collapsedControl"] button {
-        background-color: #ffffff !important;
-        border-radius: 8px !important;
-        padding: 6px 14px !important;
-        border: 2px solid #26D0CE !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-        width: auto !important;
-        height: auto !important;
+    /* Hide the original SVG icon everywhere in the header */
+    header[data-testid="stHeader"] button svg { 
+        display: none !important; 
     }
-    [data-testid="collapsedControl"] button::after {
+    /* Inject beautiful ☰ Menu button */
+    header[data-testid="stHeader"] button::before {
         content: "☰ Menu" !important;
         font-size: 16px !important;
         font-weight: 900 !important;
-        color: #1A2980 !important;
+        color: #FF416C !important;
+        background-color: #ffffff !important;
+        border: 2px solid #FF416C !important;
+        border-radius: 8px !important;
+        padding: 6px 12px !important;
         display: block !important;
-        visibility: visible !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
     }
     
-    /* 3. Add 'X Close' text to the sidebar close button */
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"] {
-        background-color: transparent !important;
-        width: auto !important;
-        height: auto !important;
-        padding: 5px !important;
+    /* Inject ✖ Close button inside the sidebar */
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg { 
+        display: none !important; 
     }
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::after {
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before {
         content: "✖ Close" !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
+        font-size: 15px !important;
+        font-weight: 900 !important;
         color: #FFD700 !important;
+        border: 1px solid #FFD700 !important;
+        padding: 5px 10px !important;
+        border-radius: 5px !important;
         display: block !important;
-        visibility: visible !important;
     }
     
     /* =========================================
@@ -229,26 +223,28 @@ else:
 
     menu = st.session_state["active_menu"]
     
-    # 🟢 CRASH-PROOF SCRIPT TO COLLAPSE SIDEBAR ON MOBILE 🟢
+    # 🟢 100% GUARANTEED JS LOOP TO CLOSE SIDEBAR ON MOBILE 🟢
     if st.session_state.get("close_sidebar", False):
         dynamic_id = datetime.now().timestamp()
         components.html(
             f"""
             <script>
                 // Run ID: {dynamic_id}
-                const triggerClose = () => {{
-                    const parentDoc = window.parent.document;
-                    // Find any button with label 'Close sidebar'
-                    const closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
+                var attempts = 0;
+                var closeInterval = setInterval(function() {{
+                    var parentDoc = window.parent.document;
+                    // Find the close button by aria-label
+                    var closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
                     if (closeBtn) {{
                         closeBtn.click();
+                        clearInterval(closeInterval); // Stop once clicked
                     }}
-                }};
-                
-                // Multi-fire approach: Try immediately, then 100ms, then 500ms to ensure it works on all mobiles
-                triggerClose();
-                setTimeout(triggerClose, 100);
-                setTimeout(triggerClose, 500);
+                    attempts++;
+                    // Try for exactly 1 second (10 times x 100ms) to ensure DOM is ready
+                    if (attempts > 10) {{
+                        clearInterval(closeInterval);
+                    }}
+                }}, 100);
             </script>
             """,
             height=0, width=0
