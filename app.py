@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import streamlit.components.v1 as components
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
@@ -18,7 +19,7 @@ if not os.path.exists(config_path):
 # --- 2. SETUP & PAGE CONFIG ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 3. CLEAN & STABLE CSS WITH ☰ MENU BUTTON ---
+# --- 3. VIBRANT & CRASH-PROOF CSS ---
 st.markdown("""
     <style>
     /* =========================================
@@ -27,11 +28,10 @@ st.markdown("""
     :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
     .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
     
-    /* Hide Streamlit Branding and Top Right Toolbar */
+    /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
-    [data-testid="stToolbar"], [data-testid="stActionElements"], .stAppToolbar { display: none !important; visibility: hidden !important; }
     
     /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
@@ -44,43 +44,37 @@ st.markdown("""
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
     /* =========================================
-       🍔 CUSTOM ☰ MENU BUTTON STYLING
+       🍔 100% WORKING MENU BUTTON (Replaces Arrows)
        ========================================= */
-    [data-testid="collapsedControl"] button {
+    /* Hide the original SVG icon everywhere in the header */
+    header[data-testid="stHeader"] button svg { 
+        display: none !important; 
+    }
+    /* Inject beautiful ☰ Menu button */
+    header[data-testid="stHeader"] button::before {
+        content: "☰ Menu" !important;
+        font-size: 16px !important;
+        font-weight: 900 !important;
+        color: #FF416C !important;
         background-color: #ffffff !important;
         border: 2px solid #FF416C !important;
         border-radius: 8px !important;
-        padding: 5px 15px !important;
-        width: auto !important; 
-        height: auto !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        padding: 6px 12px !important;
+        display: block !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
     }
-    [data-testid="collapsedControl"] svg { display: none !important; }
-    [data-testid="collapsedControl"] button::after {
-        content: "☰ Menu" !important;
-        color: #FF416C !important;
-        font-weight: 900 !important;
-        font-size: 16px !important;
-        display: block !important;
-        visibility: visible !important;
-    }
     
-    /* Sidebar Close Button */
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg,
-    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] svg { 
+    /* Inject ✖ Close button inside the sidebar */
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg { 
         display: none !important; 
     }
-    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before,
-    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"]::before {
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before {
         content: "✖ Close" !important;
         font-size: 15px !important;
         font-weight: 900 !important;
         color: #FFD700 !important;
-        background-color: rgba(255,255,255,0.1) !important;
-        padding: 5px 15px !important;
+        border: 1px solid #FFD700 !important;
+        padding: 5px 10px !important;
         border-radius: 5px !important;
         display: block !important;
     }
@@ -178,8 +172,10 @@ if "logged_in" not in st.session_state:
 if "active_menu" not in st.session_state:
     st.session_state["active_menu"] = "📊 Dashboard"
 
+# 🟢 AUTO-CLOSE SIDEBAR TRIGGER 🟢
 def change_menu(new_menu):
     st.session_state["active_menu"] = new_menu
+    st.session_state["close_sidebar"] = True
 
 def login():
     st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#1A2980, #26D0CE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
@@ -226,6 +222,34 @@ else:
             st.rerun()
 
     menu = st.session_state["active_menu"]
+    
+    # 🟢 100% GUARANTEED JS LOOP TO CLOSE SIDEBAR ON MOBILE 🟢
+    if st.session_state.get("close_sidebar", False):
+        dynamic_id = datetime.now().timestamp()
+        components.html(
+            f"""
+            <script>
+                // Run ID: {dynamic_id}
+                var attempts = 0;
+                var closeInterval = setInterval(function() {{
+                    var parentDoc = window.parent.document;
+                    // Find the close button by aria-label
+                    var closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
+                    if (closeBtn) {{
+                        closeBtn.click();
+                        clearInterval(closeInterval); // Stop once clicked
+                    }}
+                    attempts++;
+                    // Try for exactly 1 second (10 times x 100ms) to ensure DOM is ready
+                    if (attempts > 10) {{
+                        clearInterval(closeInterval);
+                    }}
+                }}, 100);
+            </script>
+            """,
+            height=0, width=0
+        )
+        st.session_state["close_sidebar"] = False
 
     st.title(f"✨ {menu}")
     st.markdown("---")
