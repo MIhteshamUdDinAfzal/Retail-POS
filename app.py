@@ -5,7 +5,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
-import time
 
 # ==========================================
 # 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
@@ -20,11 +19,11 @@ if not os.path.exists(config_path):
 # --- 2. SETUP & PAGE CONFIG ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 3. VIBRANT & RESPONSIVE CSS ---
+# --- 3. VIBRANT & CRASH-PROOF CSS ---
 st.markdown("""
     <style>
     /* =========================================
-       📱 EXTREME FORCE LIGHT MODE (Fixes Mobile Black Screens/Tables)
+       📱 EXTREME FORCE LIGHT MODE
        ========================================= */
     :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
     .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
@@ -34,53 +33,61 @@ st.markdown("""
     footer {visibility: hidden;}
     header {background: transparent !important;}
     
-    /* =========================================
-       🍔 CUSTOM HAMBURGER MENU (Replacing Arrows)
-       ========================================= */
-    /* Hide the default SVG arrows */
-    [data-testid="collapsedControl"] svg, button[aria-label="Close sidebar"] svg {
-        display: none !important;
-    }
-    
-    /* Add '☰ Menu' text and style the Open button */
-    [data-testid="collapsedControl"] button {
-        background-color: #ffffff !important;
-        border-radius: 8px !important;
-        padding: 5px 12px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-        border: 1px solid #e1e4e8 !important;
-        transition: all 0.3s ease !important;
-    }
-    [data-testid="collapsedControl"] button::before {
-        content: "☰ Menu" !important;
-        font-size: 18px !important;
-        font-weight: 900 !important;
-        color: #1A2980 !important;
-        display: block !important;
-    }
-    
-    /* Add '✖' Cross symbol to the Close button */
-    button[aria-label="Close sidebar"]::before {
-        content: "✖" !important;
-        font-size: 20px !important;
-        font-weight: bold !important;
-        color: #ffffff !important;
-        display: block !important;
-    }
-    
     /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
     
-    /* EXCEPTIONS: Keep Sidebar, Buttons, and Metric Cards Colored */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #ffffff !important;
-    }
+    /* Exceptions */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
     .stButton > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="stDownloadButton"] > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
-    /* Tables & Inputs */
+    /* =========================================
+       🍔 CRASH-PROOF MENU BUTTON (Replaces Arrows)
+       ========================================= */
+    /* 1. Hide all SVG icons in Header and Sidebar close buttons */
+    [data-testid="collapsedControl"] svg { display: none !important; }
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg { display: none !important; }
+    
+    /* 2. Add 'Menu' text and style the top-left button */
+    [data-testid="collapsedControl"] button {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 6px 14px !important;
+        border: 2px solid #26D0CE !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    [data-testid="collapsedControl"] button::after {
+        content: "☰ Menu" !important;
+        font-size: 16px !important;
+        font-weight: 900 !important;
+        color: #1A2980 !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* 3. Add 'X Close' text to the sidebar close button */
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] {
+        background-color: transparent !important;
+        width: auto !important;
+        height: auto !important;
+        padding: 5px !important;
+    }
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::after {
+        content: "✖ Close" !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        color: #FFD700 !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* =========================================
+       📝 FIX TABLES, FORMS & INPUTS
+       ========================================= */
     table, th, td, tr, tbody, thead { background-color: #ffffff !important; color: #000000 !important; border-color: #dddddd !important; }
     [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
         background-color: #ffffff !important; border-radius: 15px !important; border: 1px solid #ced4da !important; box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
@@ -104,7 +111,7 @@ st.markdown("""
     .stButton>button { background: linear-gradient(to right, #FF416C, #FF4B2B) !important; border-radius: 30px !important; padding: 12px 25px !important; font-weight: 700 !important; box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important; }
     div[data-testid="stDownloadButton"] > button { background: linear-gradient(to right, #1A2980, #26D0CE) !important; border-radius: 30px !important; box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important; width: 100% !important; }
     
-    /* Sidebar Buttons */
+    /* Sidebar Menu Buttons */
     [data-testid="stSidebar"] .stButton>button { background: rgba(255, 255, 255, 0.05) !important; border-radius: 12px !important; margin-bottom: 5px !important; }
     [data-testid="stSidebar"] .stButton>button[kind="primary"] { background: rgba(255, 255, 255, 0.25) !important; border-left: 5px solid #FFD700 !important; font-weight: 800 !important; }
     h1, h2, h3 { font-weight: 800 !important; }
@@ -114,15 +121,11 @@ st.markdown("""
 # --- 4. GOOGLE SHEETS CONNECTION & CACHING ---
 @st.cache_resource
 def init_connection():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     client = gspread.authorize(creds)
-    sheet = client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"])
-    return sheet
+    return client.open_by_url(st.secrets["gsheets"]["spreadsheet_url"])
 
 try:
     sheet = init_connection()
@@ -134,50 +137,36 @@ except Exception as e:
 def get_data_cached(ws_name):
     try:
         ws = sheet.worksheet(ws_name)
-        records = ws.get_all_records()
-        df = pd.DataFrame(records)
-        if not df.empty:
-            df.columns = df.columns.astype(str).str.strip()
+        df = pd.DataFrame(ws.get_all_records())
+        if not df.empty: df.columns = df.columns.astype(str).str.strip()
         return df
     except:
         return pd.DataFrame()
 
-def clear_cache():
-    st.cache_data.clear()
-
-def get_pkt_date():
-    return (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d")
+def clear_cache(): st.cache_data.clear()
+def get_pkt_date(): return (datetime.utcnow() + timedelta(hours=5)).strftime("%Y-%m-%d")
 
 try:
     inv_ws = sheet.worksheet("Inventory")
     sales_ws = sheet.worksheet("Sales")
     req_ws = sheet.worksheet("Requested Items")
 except Exception as e:
-    st.error(f"Error accessing basic sheets. Details: {e}")
-    st.stop()
+    st.error(f"Error accessing basic sheets. Details: {e}"); st.stop()
 
 try:
     cust_ws = sheet.worksheet("Customers")
-    if not cust_ws.get_all_values():
-        cust_ws.append_row(["Customer Name", "Phone", "Balance (RS)", "Last Updated"])
-except:
-    cust_ws = None
+    if not cust_ws.get_all_values(): cust_ws.append_row(["Customer Name", "Phone", "Balance (RS)", "Last Updated"])
+except: cust_ws = None
 
 try:
     outflow_ws = sheet.worksheet("Cash Outflow")
-    if not outflow_ws.get_all_values():
-        outflow_ws.append_row(["Date", "Description", "Amount (RS)"])
-except:
-    outflow_ws = None
+    if not outflow_ws.get_all_values(): outflow_ws.append_row(["Date", "Description", "Amount (RS)"])
+except: outflow_ws = None
 
 
 # --- 5. LOGIN SYSTEM WITH PERSISTENCE ---
-USERS = {
-    "admin": "admin123"
-}
-SHOP_INFO = {
-    "admin": "Ihtesham Bartan and Karakari Store"
-}
+USERS = {"admin": "admin123"}
+SHOP_INFO = {"admin": "Ihtesham Bartan and Karakari Store"}
 
 if "logged_in" not in st.session_state:
     if st.query_params.get("logged_in") == "true":
@@ -189,7 +178,7 @@ if "logged_in" not in st.session_state:
 if "active_menu" not in st.session_state:
     st.session_state["active_menu"] = "📊 Dashboard"
 
-# 🟢 AUTO-CLOSE SIDEBAR LOGIC 🟢
+# 🟢 AUTO-CLOSE SIDEBAR TRIGGER 🟢
 def change_menu(new_menu):
     st.session_state["active_menu"] = new_menu
     st.session_state["close_sidebar"] = True
@@ -226,14 +215,7 @@ else:
         st.divider()
         st.markdown("### 📌 Main Menu")
         
-        menu_options = [
-            "📊 Dashboard", 
-            "🛒 Sell Item (POS)", 
-            "📦 Add Item (Inventory)", 
-            "📓 Khata (Credit)", 
-            "💸 Cash Outflow", 
-            "📝 Customer Demands"
-        ]
+        menu_options = ["📊 Dashboard", "🛒 Sell Item (POS)", "📦 Add Item (Inventory)", "📓 Khata (Credit)", "💸 Cash Outflow", "📝 Customer Demands"]
         
         for option in menu_options:
             btn_type = "primary" if st.session_state["active_menu"] == option else "secondary"
@@ -247,25 +229,26 @@ else:
 
     menu = st.session_state["active_menu"]
     
-    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (100% WORKING HACK) 🟢
+    # 🟢 CRASH-PROOF SCRIPT TO COLLAPSE SIDEBAR ON MOBILE 🟢
     if st.session_state.get("close_sidebar", False):
-        # Adding a dynamic timestamp ensures this JS runs freshly on EVERY click
         dynamic_id = datetime.now().timestamp()
         components.html(
             f"""
             <script>
                 // Run ID: {dynamic_id}
-                setTimeout(function() {{
+                const triggerClose = () => {{
                     const parentDoc = window.parent.document;
-                    // Find the close button and click it
+                    // Find any button with label 'Close sidebar'
                     const closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
                     if (closeBtn) {{
                         closeBtn.click();
-                    }} else {{
-                        // Fallback Keyboard Event
-                        parentDoc.dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape', bubbles: true}}));
                     }}
-                }}, 100);
+                }};
+                
+                // Multi-fire approach: Try immediately, then 100ms, then 500ms to ensure it works on all mobiles
+                triggerClose();
+                setTimeout(triggerClose, 100);
+                setTimeout(triggerClose, 500);
             </script>
             """,
             height=0, width=0
@@ -355,7 +338,6 @@ else:
         st.subheader("📅 Daily Sales Report (Ledger)")
         if not df_sales.empty and 'Date' in df_sales.columns:
             unique_dates = sorted(df_sales['Date'].unique(), reverse=True)
-            
             for date in unique_dates:
                 df_day = df_sales[df_sales['Date'] == date]
                 with st.expander(f"🗓️ Sales Date: {date}", expanded=(date == today_str)):
@@ -399,13 +381,10 @@ else:
             
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
-                
                 st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
                 
                 search_term_pos = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_pos")
-                
                 filtered_pos = [item for item in available_items if search_term_pos.strip().lower() in item.lower()] if search_term_pos else available_items
-                
                 auto_index = 0 if (search_term_pos and len(filtered_pos) > 0) else None
 
                 with st.form("add_to_cart_form"):
@@ -563,9 +542,7 @@ else:
                     st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
                     
                     search_term_inv = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_inv")
-                    
                     filtered_inv = [item for item in existing_items if search_term_inv.strip().lower() in item.lower()] if search_term_inv else existing_items
-
                     auto_index_inv = 0 if (search_term_inv and len(filtered_inv) > 0) else None
 
                     selected_option = st.selectbox("📌 2. Item Selected", filtered_inv, index=auto_index_inv, placeholder="Choose an item...")
