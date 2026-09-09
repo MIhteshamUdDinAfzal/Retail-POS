@@ -10,10 +10,10 @@ st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="�
 # --- 2. VIBRANT & PROFESSIONAL CUSTOM CSS ---
 st.markdown("""
     <style>
-    /* Hide Streamlit Branding */
+    /* Hide Streamlit Branding but KEEP the sidebar toggle button */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header {background: transparent !important;} /* Header is transparent instead of hidden */
     
     /* 🌟 Main App Background */
     .stApp {
@@ -44,7 +44,7 @@ st.markdown("""
         border-radius: 15px;
         padding: 20px;
         box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
-        border-top: 6px solid #FF416C; /* Vibrant Top Border */
+        border-top: 6px solid #FF416C; 
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     div[data-testid="metric-container"]:hover {
@@ -172,7 +172,7 @@ except:
 USERS = {
     "admin": "admin123"
 }
-# 🔴 Mapping username to Shop Name for Sidebar
+# Mapping username to Shop Name for Sidebar
 SHOP_INFO = {
     "admin": "Ihtesham Bartan and Karakari Store"
 }
@@ -207,7 +207,6 @@ if not st.session_state["logged_in"]:
 else:
     # --- PROFESSIONAL SIDEBAR ---
     with st.sidebar:
-        # 🔴 Dynamic Shop Name Injection based on login
         shop_title = SHOP_INFO.get(st.session_state['username'], "Your Store")
         st.markdown(f"### 🏪 Welcome to\n## <span style='color:#FFD700;'>{shop_title}</span>", unsafe_allow_html=True)
         st.divider()
