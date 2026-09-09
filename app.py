@@ -294,7 +294,7 @@ else:
         col2.metric("📈 Today's Total Profit", f"RS {today_profit:,.2f}")
         col3.metric("💸 Today's Cash Outflow", f"RS {today_outflow:,.2f}")
         
-        # --- 📊 PROFESSIONAL GROUPED BAR CHART (ALTAIR) ---
+        # --- 📊 PROFESSIONAL GROUPED BAR CHART WITH LABELS ---
         st.write("")
         st.subheader("📈 Sales & Profit Trend Analytics")
         if not df_sales.empty and 'Date' in df_sales.columns and 'Total Revenue' in df_sales.columns:
@@ -302,17 +302,30 @@ else:
             df_trend = df_trend.sort_values('Date')
             
             df_melted = df_trend.melt('Date', var_name='Metric', value_name='Amount')
-            chart = alt.Chart(df_melted).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
+            
+            bars = alt.Chart(df_melted).mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4).encode(
                 x=alt.X('Date:O', title='Date', axis=alt.Axis(labelAngle=0)),
                 y=alt.Y('Amount:Q', title='Amount (RS)'),
                 color=alt.Color('Metric:N', scale=alt.Scale(domain=['Total Revenue', 'Total Profit'], range=['#1A2980', '#FF416C']), legend=alt.Legend(title="")),
                 xOffset='Metric:N',
                 tooltip=['Date', 'Metric', 'Amount']
-            ).properties(
-                height=260
-            ).configure_view(
-                stroke=None
             )
+            
+            text = alt.Chart(df_melted).mark_text(
+                align='center',
+                baseline='bottom',
+                dy=-4,
+                fontSize=11,
+                fontWeight='bold',
+                color='#333333'
+            ).encode(
+                x=alt.X('Date:O'),
+                y=alt.Y('Amount:Q'),
+                xOffset='Metric:N',
+                text=alt.Text('Amount:Q', format=',.0f')
+            )
+            
+            chart = (bars + text).properties(height=290).configure_view(stroke=None)
             st.altair_chart(chart, use_container_width=True)
         else:
             st.info("Not enough sales data available for trend analysis yet.")
