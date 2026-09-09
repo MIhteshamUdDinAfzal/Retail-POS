@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 # ==========================================
 # 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
 # ==========================================
-# یہ کوڈ خود بخود ایک سیٹنگ فائل بنائے گا جو ایپ کو ہمیشہ لائٹ موڈ پر لاک کر دے گی
 if not os.path.exists('.streamlit'):
     os.makedirs('.streamlit')
 config_path = '.streamlit/config.toml'
@@ -221,20 +220,25 @@ else:
 
     menu = st.session_state["active_menu"]
     
-    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE 🟢
+    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (WITH TIMER DELAY) 🟢
     if st.session_state.get("close_sidebar", False):
         components.html(
             """
             <script>
-                // Simulates pressing 'Escape' which closes the mobile sidebar in Streamlit
-                window.parent.document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}));
-                // Fallback: Click the close button
-                const buttons = window.parent.document.querySelectorAll('button');
-                buttons.forEach(btn => {
-                    if (btn.getAttribute('aria-label') === 'Close sidebar') {
-                        btn.click();
+                setTimeout(function() {
+                    // Method 1: Find the actual close button and click it
+                    var buttons = window.parent.document.querySelectorAll('button');
+                    for (var i = 0; i < buttons.length; i++) {
+                        var aria = buttons[i].getAttribute('aria-label');
+                        var testid = buttons[i].getAttribute('data-testid');
+                        if (aria === 'Close sidebar' || testid === 'stSidebarCollapseButton' || testid === 'baseButton-headerNoPadding') {
+                            buttons[i].click();
+                            break;
+                        }
                     }
-                });
+                    // Method 2: Trigger Escape Key if button is not found
+                    window.parent.document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+                }, 300); // 300 milliseconds delay
             </script>
             """,
             height=0, width=0
