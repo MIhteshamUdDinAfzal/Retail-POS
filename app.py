@@ -172,7 +172,7 @@ try:
 except: outflow_ws = None
 
 
-# --- AI VOICE ASSISTANT FUNCTION ---
+# --- UPDATED AI VOICE ASSISTANT FUNCTION ---
 GROQ_API_KEY = st.secrets.get("ai_keys", {}).get("GROQ_API_KEY", "")
 GEMINI_API_KEY = st.secrets.get("ai_keys", {}).get("GEMINI_API_KEY", "")
 
@@ -183,7 +183,6 @@ def process_voice_command(audio_bytes, valid_items, task_type="sell"):
     try:
         groq_client = Groq(api_key=GROQ_API_KEY)
         genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio_bytes)
@@ -210,7 +209,19 @@ def process_voice_command(audio_bytes, valid_items, task_type="sell"):
             "price": float or int (if explicitly mentioned, else null)
         }}
         """
-        response = model.generate_content(prompt)
+        
+        # Try latest model first, fallback to stable models if needed
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content(prompt)
+        except:
+            try:
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(prompt)
+            except:
+                model = genai.GenerativeModel('gemini-pro')
+                response = model.generate_content(prompt)
+
         raw_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(raw_json)
     except Exception as e:
