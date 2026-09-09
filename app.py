@@ -373,10 +373,24 @@ else:
         if not df_sales.empty and 'Date' in df_sales.columns:
             unique_dates = sorted(df_sales['Date'].unique(), reverse=True)
             for date in unique_dates:
-                df_day = df_sales[df_sales['Date'] == date]
+                df_day = df_sales[df_sales['Date'] == date].copy()
+                
+                # --- CALCULATE TOTALS FOR THIS DAY ---
+                tot_qty = df_day['Quantity Sold'].sum() if 'Quantity Sold' in df_day.columns else 0
+                tot_profit = df_day['Total Profit'].sum() if 'Total Profit' in df_day.columns else 0
+                
+                # Create a total row matching columns
+                total_row = {col: "" for col in df_day.columns}
+                if 'Item Name' in total_row: total_row['Item Name'] = "TOTAL"
+                if 'Quantity Sold' in total_row: total_row['Quantity Sold'] = tot_qty
+                if 'Total Profit' in total_row: total_row['Total Profit'] = tot_profit
+                
+                # Append total row to the day's dataframe
+                df_day_with_total = pd.concat([df_day, pd.DataFrame([total_row])], ignore_index=True)
+                
                 with st.expander(f"🗓️ Sales Date: {date}", expanded=(date == today_str)):
-                    cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Sell price', 'Quantity Sold', 'Unit', 'Total Profit'] if col in df_day.columns]
-                    st.dataframe(df_day[cols_to_show], use_container_width=True, hide_index=True)
+                    cols_to_show = [col for col in ['Item Name', 'Purchased price', 'Sell price', 'Quantity Sold', 'Unit', 'Total Profit'] if col in df_day_with_total.columns]
+                    st.dataframe(df_day_with_total[cols_to_show], use_container_width=True, hide_index=True)
         else:
             st.info("No sales data available yet.")
 
@@ -549,7 +563,7 @@ else:
                                     
                                     inv_row = inv_idx + 2
                                     inv_ws = sheet.worksheet("Inventory")
-                                    inv_ws.update(range_name=f"D{inv_row}:F{inv_row}", values=[[new_qty, sale_record.get('Unit', 'Pcs'), remarks]])
+                                    inv_ws.update(range_name=f"D{inv_row}:F{inv_row}", values=[[new_qty, sale_record.get('Unit', 'Pcs'], remarks]])
                                 
                                 st.success(f"Sale deleted! {qty_to_restore} of '{item_name}' have been restored.")
                                 clear_cache()
