@@ -11,14 +11,16 @@ st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="�
 st.markdown("""
     <style>
     /* =========================================
-       📱 FORCE LIGHT MODE FOR ALL MOBILES (FIXES BLACK BUTTONS)
+       📱 EXTREME FORCE LIGHT MODE (Fixes Mobile Black Screens/Tables)
        ========================================= */
-    :root {
-        color-scheme: light only !important;
-    }
-    .stApp, .main {
-        background-color: #f4f7f6 !important;
+    :root, html, body {
         color-scheme: light !important;
+        background-color: #f4f7f6 !important;
+    }
+    
+    .stApp, .main, div[data-testid="stAppViewContainer"] {
+        background-color: #f4f7f6 !important;
+        color: #222222 !important;
     }
     
     /* Hide Streamlit Branding */
@@ -26,12 +28,35 @@ st.markdown("""
     footer {visibility: hidden;}
     header {background: transparent !important;}
     
-    /* General Text formatting */
-    .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
+    /* Force General Text to Black */
+    p, span, div, h1, h2, h3, h4, h5, h6, label, li {
         color: #222222 !important;
     }
     
-    /* Form Backgrounds */
+    /* EXCEPTIONS: Keep Sidebar, Buttons, and Metric Cards Colored */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #ffffff !important;
+    }
+    .stButton > button * {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+    div[data-testid="stDownloadButton"] > button * {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+    div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
+    div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
+    
+    /* =========================================
+       📝 FIX TABLES, FORMS & INPUTS (Force White BG & Black Text)
+       ========================================= */
+    table, th, td, tr, tbody, thead {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        border-color: #dddddd !important;
+    }
+    
     [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
         background-color: #ffffff !important;
         border-radius: 15px !important;
@@ -39,65 +64,36 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
     }
     
-    /* TEXT INPUTS & NUMBER INPUTS */
-    div[data-baseweb="input"] > div { 
+    /* Inputs & Selectbox */
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { 
         background-color: #ffffff !important; 
         border-radius: 8px !important;
         border: 1px solid #aaa !important;
     }
-    div[data-baseweb="input"] input {
+    input, select, textarea, div[data-baseweb="select"] span {
         color: #000000 !important;
         background-color: #ffffff !important;
         -webkit-text-fill-color: #000000 !important; 
-        font-weight: 500 !important;
-    }
-    
-    /* SELECTBOX (DROPDOWN) MAIN BOX */
-    div[data-baseweb="select"] > div {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        border-radius: 8px !important;
-        border: 1px solid #aaa !important;
-    }
-    div[data-baseweb="select"] span {
-        color: #000000 !important;
-        font-weight: 500 !important;
-    }
-    
-    /* SELECTBOX DROPDOWN LIST (POPOVER) & LIVE SEARCH */
-    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-testid="stSelectboxVirtualDropdown"] {
-        background-color: #ffffff !important;
-    }
-    li[role="option"] {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-    }
-    li[role="option"] span {
-        color: #000000 !important;
         font-weight: 600 !important;
+    }
+    
+    /* Dropdown Popover List */
+    div[data-baseweb="popover"], ul[role="listbox"], li[role="option"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
     }
     li[role="option"]:hover {
         background-color: #e2e6ea !important;
     }
     
-    /* Sidebar Fixes */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #ffffff !important;
-    }
-    
-    /* Tables */
-    table th, table td {
-        color: #000000 !important;
-        background-color: #ffffff !important;
-    }
-    
-    /* 🎨 Colorful Gradient Sidebar */
+    /* =========================================
+       🎨 UI BEAUTIFICATION (Buttons & Sidebar)
+       ========================================= */
     [data-testid="stSidebar"] {
         background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%);
         box-shadow: 5px 0 15px rgba(0,0,0,0.1);
     }
     
-    /* 📊 Metric Cards (Dashboard) - MOBILE RESPONSIVE */
     div[data-testid="metric-container"] {
         background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
         border: none;
@@ -109,33 +105,21 @@ st.markdown("""
         box-sizing: border-box !important;
         overflow-wrap: break-word !important; 
     }
-    div[data-testid="metric-container"] > div:nth-child(1) {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        color: #FF416C !important;
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.15);
     }
-    div[data-testid="metric-container"] > div:nth-child(2) {
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        color: #1A2980 !important;
-        white-space: normal !important; 
-    }
+    div[data-testid="metric-container"] > div:nth-child(1) { font-size: 16px !important; font-weight: 700 !important; }
+    div[data-testid="metric-container"] > div:nth-child(2) { font-size: 28px !important; font-weight: 900 !important; white-space: normal !important; }
+    
     @media (max-width: 768px) {
-        div[data-testid="metric-container"] {
-            padding: 15px;
-            margin-bottom: 10px;
-        }
-        div[data-testid="metric-container"] > div:nth-child(2) {
-            font-size: 24px !important;
-        }
+        div[data-testid="metric-container"] { padding: 15px; margin-bottom: 10px; }
+        div[data-testid="metric-container"] > div:nth-child(2) { font-size: 24px !important; }
     }
     
-    /* 🖱️ MAIN APP BUTTONS */
+    /* Main App Red/Orange Buttons */
     .stButton>button {
-        background: #FF416C !important; 
         background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
-        color: white !important;
-        -webkit-text-fill-color: white !important;
         border: none !important;
         border-radius: 30px !important;
         padding: 12px 25px !important;
@@ -144,27 +128,17 @@ st.markdown("""
         letter-spacing: 1px;
         box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
     }
-    .stButton>button p {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
-    }
     
-    /* 📥 DOWNLOAD BUTTONS FIX (Blue Gradient) */
+    /* 🌟 DOWNLOAD BUTTONS FIX (Beautiful Blue Gradient) */
     div[data-testid="stDownloadButton"] > button {
-        background: #1A2980 !important; 
         background: linear-gradient(to right, #1A2980, #26D0CE) !important;
-        color: white !important;
-        -webkit-text-fill-color: white !important;
         border-radius: 30px !important;
         border: none !important;
         box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important;
-    }
-    div[data-testid="stDownloadButton"] > button p {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
+        width: 100% !important;
     }
     
-    /* 📲 Sidebar Menu Buttons */
+    /* Sidebar Menu Buttons */
     [data-testid="stSidebar"] .stButton>button {
         background: rgba(255, 255, 255, 0.05) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -185,7 +159,7 @@ st.markdown("""
         font-weight: 800 !important;
     }
     
-    h1, h2, h3 { color: #1A2980 !important; font-weight: 800 !important; }
+    h1, h2, h3 { font-weight: 800 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -454,12 +428,14 @@ else:
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
                 
-                # Instructions for Native Live Search on Mobile
-                st.info("💡 **Mobile Tip:** Tap the 'Choose an item...' box below. When the list opens, tap the search bar at the very top of the list to bring up your keyboard and type instantly!")
+                # 🔴 RE-ADDED MANUAL SEARCH BOX FOR MOBILE SUPPORT
+                st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'** on your keyboard to filter the list.")
+                search_term_pos = st.text_input("🔍 1. Search Item Name (Press Enter to Apply)", placeholder="Type here and press Enter...", key="search_pos")
+                
+                filtered_pos = [item for item in available_items if search_term_pos.strip().lower() in item.lower()] if search_term_pos else available_items
 
                 with st.form("add_to_cart_form"):
-                    # 🔴 NATIVE SEARCH BOX (Dynamically filters as you type)
-                    selected_item = st.selectbox("📌 Select Item from List", available_items, index=None, placeholder="Choose an item...")
+                    selected_item = st.selectbox("📌 2. Select Item", filtered_pos, index=None, placeholder="Choose an item...")
                     
                     c1, c2 = st.columns(2)
                     qty_sold = c1.number_input("Quantity / Weight Sold", min_value=0.01, value=None, step=1.0, format="%.2f", placeholder="Enter quantity...")
@@ -610,10 +586,13 @@ else:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
                 with st.container():
-                    st.info("💡 **Mobile Tip:** Tap the 'Choose an item...' box below. When the list opens, tap the search bar at the top of the list to bring up your keyboard.")
+                    # 🔴 RE-ADDED MANUAL SEARCH BOX FOR MOBILE
+                    st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'** on your keyboard to filter the list.")
+                    search_term_inv = st.text_input("🔍 1. Search Item Name (Press Enter to Apply)", placeholder="Type here and press Enter...", key="search_inv")
+                    
+                    filtered_inv = [item for item in existing_items if search_term_inv.strip().lower() in item.lower()] if search_term_inv else existing_items
 
-                    # 🔴 NATIVE SEARCH BOX
-                    selected_option = st.selectbox("📌 Select Item from List", existing_items, index=None, placeholder="Choose an item...")
+                    selected_option = st.selectbox("📌 2. Select Item", filtered_inv, index=None, placeholder="Choose an item...")
                     
                     default_price = None 
                     current_unit = "Pcs"
