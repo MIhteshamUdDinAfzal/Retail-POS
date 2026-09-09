@@ -18,7 +18,7 @@ if not os.path.exists(config_path):
 # --- 2. SETUP & PAGE CONFIG ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 3. CLEAN & STABLE CSS ---
+# --- 3. CLEAN & STABLE CSS WITH ☰ MENU BUTTON ---
 st.markdown("""
     <style>
     /* =========================================
@@ -27,10 +27,11 @@ st.markdown("""
     :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
     .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
     
-    /* Hide Streamlit Branding */
+    /* Hide Streamlit Branding and Top Right Toolbar */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
+    [data-testid="stToolbar"], [data-testid="stActionElements"], .stAppToolbar { display: none !important; visibility: hidden !important; }
     
     /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
@@ -41,6 +42,48 @@ st.markdown("""
     div[data-testid="stDownloadButton"] > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
+    
+    /* =========================================
+       🍔 CUSTOM ☰ MENU BUTTON STYLING
+       ========================================= */
+    [data-testid="collapsedControl"] button {
+        background-color: #ffffff !important;
+        border: 2px solid #FF416C !important;
+        border-radius: 8px !important;
+        padding: 5px 15px !important;
+        width: auto !important; 
+        height: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    }
+    [data-testid="collapsedControl"] svg { display: none !important; }
+    [data-testid="collapsedControl"] button::after {
+        content: "☰ Menu" !important;
+        color: #FF416C !important;
+        font-weight: 900 !important;
+        font-size: 16px !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Sidebar Close Button */
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"] svg,
+    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"] svg { 
+        display: none !important; 
+    }
+    [data-testid="stSidebar"] button[aria-label="Close sidebar"]::before,
+    [data-testid="stSidebar"] button[data-testid="stSidebarCollapseButton"]::before {
+        content: "✖ Close" !important;
+        font-size: 15px !important;
+        font-weight: 900 !important;
+        color: #FFD700 !important;
+        background-color: rgba(255,255,255,0.1) !important;
+        padding: 5px 15px !important;
+        border-radius: 5px !important;
+        display: block !important;
+    }
     
     /* =========================================
        📝 FIX TABLES, FORMS & INPUTS
