@@ -238,11 +238,14 @@ else:
                 // Run ID: {dynamic_id}
                 const triggerClose = () => {{
                     const parentDoc = window.parent.document;
+                    // Find any button with label 'Close sidebar'
                     const closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
                     if (closeBtn) {{
                         closeBtn.click();
                     }}
                 }};
+                
+                // Multi-fire approach: Try immediately, then 100ms, then 500ms to ensure it works on all mobiles
                 triggerClose();
                 setTimeout(triggerClose, 100);
                 setTimeout(triggerClose, 500);
