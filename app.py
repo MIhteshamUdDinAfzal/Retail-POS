@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # --- 1. SETUP & PAGE CONFIG (Must be first) ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. CUSTOM CSS FOR PROFESSIONAL UI ---
+# --- 2. VIBRANT & PROFESSIONAL CUSTOM CSS ---
 st.markdown("""
     <style>
     /* Hide Streamlit Branding */
@@ -15,45 +15,94 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* Metric Cards Styling */
-    div[data-testid="metric-container"] {
-        background-color: #ffffff;
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 2px 4px 10px rgba(0,0,0,0.05);
-        border-left: 5px solid #007bff;
-        color: #333333;
-    }
-    /* Metric Label (Title) */
-    div[data-testid="metric-container"] > div:nth-child(1) {
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: #555555;
-    }
-    /* Metric Value */
-    div[data-testid="metric-container"] > div:nth-child(2) {
-        font-size: 26px !important;
-        font-weight: bold !important;
-        color: #111111;
+    /* 🌟 Main App Background */
+    .stApp {
+        background-color: #f4f7f6;
     }
     
-    /* Beautiful Buttons */
+    /* 🎨 Colorful Gradient Sidebar */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%);
+        box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+    }
+    [data-testid="stSidebar"] * {
+        color: #ffffff !important;
+    }
+    
+    /* Sidebar Radio Buttons Styling */
+    .stRadio > div {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 10px 15px;
+        border-radius: 12px;
+        backdrop-filter: blur(5px);
+    }
+    
+    /* 📊 Beautiful Metric Cards (Dashboard) */
+    div[data-testid="metric-container"] {
+        background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
+        border: none;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
+        border-top: 6px solid #FF416C; /* Vibrant Top Border */
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.15);
+    }
+    div[data-testid="metric-container"] > div:nth-child(1) {
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        color: #FF416C !important;
+    }
+    div[data-testid="metric-container"] > div:nth-child(2) {
+        font-size: 30px !important;
+        font-weight: 900 !important;
+        color: #1A2980 !important;
+    }
+    
+    /* 🖱️ Stunning 3D Buttons */
     .stButton>button {
-        border-radius: 8px !important;
-        font-weight: 600 !important;
+        background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 30px !important;
+        padding: 12px 25px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
         transition: all 0.3s ease !important;
     }
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        transform: scale(1.05) translateY(-3px) !important;
+        box-shadow: 0 8px 25px rgba(255, 75, 43, 0.6) !important;
     }
     
-    /* Expander Styling */
-    .streamlit-expanderHeader {
-        background-color: #f8f9fa;
-        border-radius: 5px;
-        font-weight: bold;
+    /* 🗂️ Beautiful Containers and Forms */
+    [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        background-color: white !important;
+        border-radius: 15px !important;
+        border: 1px solid #e1e4e8 !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
+    }
+    
+    /* ✨ Input Fields Glow Effect */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>div {
+        border-radius: 10px !important;
+        border: 1px solid #ced4da !important;
+        transition: all 0.3s;
+    }
+    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
+        border-color: #26D0CE !important;
+        box-shadow: 0 0 8px rgba(38, 208, 206, 0.5) !important;
+    }
+    
+    /* 📝 Headings Gradient Text */
+    h1, h2, h3 {
+        color: #1A2980 !important;
+        font-weight: 800 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -101,7 +150,7 @@ try:
     sales_ws = sheet.worksheet("Sales")
     req_ws = sheet.worksheet("Requested Items")
 except Exception as e:
-    st.error(f"Error accessing basic sheets. Make sure Inventory, Sales, and Requested Items exist. Details: {e}")
+    st.error(f"Error accessing basic sheets. Details: {e}")
     st.stop()
 
 try:
@@ -120,14 +169,16 @@ except:
 
 
 # --- 4. LOGIN SYSTEM ---
-# آپ اپنا یوزر نیم اور پاس ورڈ یہاں تبدیل کر سکتے ہیں
 USERS = {
-    "admin": "admin123",
-    "shopkeeper": "shop123"
+    "admin": "admin123"
+}
+# 🔴 Mapping username to Shop Name for Sidebar
+SHOP_INFO = {
+    "admin": "Ihtesham Bartan and Karakari Store"
 }
 
 def login():
-    st.markdown("<h1 style='text-align: center; color: #007bff;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#1A2980, #26D0CE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #555;'>Secure Login Portal</h3>", unsafe_allow_html=True)
     st.write("")
     
@@ -147,7 +198,6 @@ def login():
                 else:
                     st.error("Invalid Username or Password")
 
-# Initialize Session State
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
@@ -157,11 +207,12 @@ if not st.session_state["logged_in"]:
 else:
     # --- PROFESSIONAL SIDEBAR ---
     with st.sidebar:
-        st.markdown(f"### 👤 Welcome, **{st.session_state['username'].capitalize()}**")
+        # 🔴 Dynamic Shop Name Injection based on login
+        shop_title = SHOP_INFO.get(st.session_state['username'], "Your Store")
+        st.markdown(f"### 🏪 Welcome to\n## <span style='color:#FFD700;'>{shop_title}</span>", unsafe_allow_html=True)
         st.divider()
-        st.markdown("## 📌 Main Menu")
+        st.markdown("### 📌 Main Menu")
         
-        # We use radio buttons styled via sidebar for clean navigation
         menu = st.radio(
             "Go to:",
             ["📊 Dashboard", "🛒 Sell Item (POS)", "📦 Add Item (Inventory)", "📓 Khata (Credit)", "💸 Cash Outflow", "📝 Customer Demands"],
@@ -174,7 +225,7 @@ else:
             st.rerun()
 
     # --- MAIN CONTENT AREA ---
-    st.title(f"🏪 {menu}")
+    st.title(f"✨ {menu}")
     st.markdown("---")
 
     # ==========================================
@@ -211,9 +262,9 @@ else:
             today_outflow = df_outflow[df_outflow['Date'] == today_str]['Amount (RS)'].sum()
         
         col1, col2, col3 = st.columns(3)
-        col1.metric("Today's Total Revenue", f"RS {today_sales:,.2f}")
-        col2.metric("Today's Total Profit", f"RS {today_profit:,.2f}")
-        col3.metric("Today's Cash Outflow", f"RS {today_outflow:,.2f}")
+        col1.metric("💰 Today's Total Revenue", f"RS {today_sales:,.2f}")
+        col2.metric("📈 Today's Total Profit", f"RS {today_profit:,.2f}")
+        col3.metric("💸 Today's Cash Outflow", f"RS {today_outflow:,.2f}")
         
         st.write("")
         st.subheader("📥 Download Financial Reports")
@@ -299,7 +350,7 @@ else:
             df_inv['Quantity'] = pd.to_numeric(df_inv['Quantity'], errors='coerce').fillna(0)
             available_items = df_inv[df_inv['Quantity'] > 0]['Item Name'].tolist()
             
-            with st.container(border=True):
+            with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
                 with st.form("add_to_cart_form"):
                     selected_item = st.selectbox("🔍 Search & Select Item", available_items, index=None, placeholder="Choose an item...")
@@ -345,7 +396,7 @@ else:
                 st.dataframe(cart_df[["Item Name", "Qty", "Unit", "Sell Price", "Total Bill"]], use_container_width=True)
                 
                 total_bill = cart_df['Total Bill'].sum()
-                st.markdown(f"<h3 style='color: #28a745;'>Grand Total: RS {total_bill:,.2f}</h3>", unsafe_allow_html=True)
+                st.markdown(f"<h3 style='color: #FF416C;'>Grand Total: RS {total_bill:,.2f}</h3>", unsafe_allow_html=True)
                 
                 col_b1, col_b2 = st.columns(2)
                 with col_b1:
@@ -353,7 +404,7 @@ else:
                         st.session_state.cart = []
                         st.rerun()
                 with col_b2:
-                    if st.button("✅ Complete Sale (Checkout)", use_container_width=True, type="primary"):
+                    if st.button("✅ Complete Sale (Checkout)", use_container_width=True):
                         date_str = get_pkt_date()
                         df_sales = get_data_cached("Sales")
                         
@@ -363,6 +414,8 @@ else:
                             new_sales_no = len(df_sales) + 1
                         
                         sales_rows_to_append = []
+                        inv_ws = sheet.worksheet("Inventory")
+                        sales_ws = sheet.worksheet("Sales")
                         
                         for item in st.session_state.cart:
                             idx = df_inv.index[df_inv['Item Name'] == item["Item Name"]].tolist()[0]
@@ -389,7 +442,7 @@ else:
                         
         st.write("")
         with st.expander("↩️ Undo / Delete a Recent Sale"):
-            st.info("Deleting a merged sale will restore the total combined quantity of that item for the day.")
+            st.info("Deleting a sale will restore the total quantity of that item back to your inventory.")
             df_sales_current = get_data_cached("Sales")
             
             if not df_sales_current.empty and 'S No.' in df_sales_current.columns:
@@ -415,6 +468,7 @@ else:
                                 qty_to_restore = float(sale_record['Quantity Sold'])
                                 
                                 sale_idx = df_sales_current.index[df_sales_current['S No.'] == s_no_to_delete].tolist()[0]
+                                sales_ws = sheet.worksheet("Sales")
                                 sales_ws.delete_rows(sale_idx + 2) 
                                 
                                 df_inv_current = get_data_cached("Inventory")
@@ -425,6 +479,7 @@ else:
                                     remarks = "Out of Stock" if new_qty <= 0 else ("Low Stock" if new_qty <= 5 else "Available")
                                     
                                     inv_row = inv_idx + 2
+                                    inv_ws = sheet.worksheet("Inventory")
                                     inv_ws.update(range_name=f"D{inv_row}:F{inv_row}", values=[[new_qty, sale_record.get('Unit', 'Pcs'), remarks]])
                                 
                                 st.success(f"Sale deleted! {qty_to_restore} of '{item_name}' have been restored.")
@@ -448,7 +503,7 @@ else:
             if not existing_items:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
-                with st.container(border=True):
+                with st.container():
                     selected_option = st.selectbox("🔍 Search & Select Item", existing_items, index=None, placeholder="Choose an item from the list...")
                     
                     default_price = None 
@@ -465,7 +520,7 @@ else:
                     unit_select = col2.selectbox("Unit", ["Pcs", "KG", "Gram", "Liter", "Set"], index=["Pcs", "KG", "Gram", "Liter", "Set"].index(current_unit) if current_unit in ["Pcs", "KG", "Gram", "Liter", "Set"] else 0, key="exist_unit")
                     buy_price = col3.number_input("Update Purchased Price (RS)", min_value=0.0, value=default_price, step=1.0, key="exist_price", placeholder="Enter price...")
                     
-                    submitted = st.button("Update Inventory", use_container_width=True, type="primary")
+                    submitted = st.button("Update Inventory", use_container_width=True)
                     
                     if submitted:
                         if not selected_option:
@@ -479,13 +534,14 @@ else:
                             new_qty = current_qty + qty
                             remarks = "Out of Stock" if new_qty <= 0 else ("Low Stock" if new_qty <= 5 else "Available")
                             row_index = idx + 2 
+                            inv_ws = sheet.worksheet("Inventory")
                             inv_ws.update(range_name=f"C{row_index}:F{row_index}", values=[[buy_price, new_qty, unit_select, remarks]])
                             st.success(f"Restocked '{selected_option}'! New Qty: {new_qty} {unit_select}. Price updated to RS {buy_price}.")
                             clear_cache()
                             st.rerun()
 
         else:
-            with st.container(border=True):
+            with st.container():
                 new_item_name = st.text_input("🆕 Enter New Item Name", key="input_item_name")
                 
                 col1, col2, col3 = st.columns([2, 1, 2])
@@ -493,7 +549,7 @@ else:
                 unit_select = col2.selectbox("Unit", ["Pcs", "KG", "Gram", "Liter", "Set"], key="input_unit")
                 buy_price = col3.number_input("Purchased Price (RS)", min_value=0.0, value=None, step=1.0, key="input_price", placeholder="Type price here...")
                 
-                submitted = st.button("Save New Item", use_container_width=True, type="primary")
+                submitted = st.button("Save New Item", use_container_width=True)
                 
                 if submitted:
                     if not new_item_name:
@@ -512,6 +568,7 @@ else:
                                 new_s_no = len(df_inv) + 1
                             
                             remarks = "Out of Stock" if qty <= 0 else ("Low Stock" if qty <= 5 else "Available")
+                            inv_ws = sheet.worksheet("Inventory")
                             inv_ws.insert_row([new_s_no, new_item_name, buy_price, qty, unit_select, remarks], index=2)
                             st.success(f"Added new item '{new_item_name}' ({qty} {unit_select}) to inventory successfully!")
                             clear_cache()
@@ -529,7 +586,7 @@ else:
             col_c1, col_c2 = st.columns([1, 1.5])
             
             with col_c1:
-                with st.container(border=True):
+                with st.container():
                     st.subheader("➕ Add / Update Credit")
                     with st.form("khata_form"):
                         cust_name = st.text_input("Customer Name")
@@ -537,24 +594,25 @@ else:
                         amount = st.number_input("Amount (RS)", min_value=0.01, value=None, step=1.0, placeholder="Enter amount...")
                         action = st.radio("Transaction Type", ["Gave Credit (Udhaar Diya)", "Received Payment (Pैसे Mile)"])
                         
-                        khata_submitted = st.form_submit_button("Save Transaction", type="primary")
+                        khata_submitted = st.form_submit_button("Save Transaction")
                         
                         if khata_submitted:
                             if not cust_name or amount is None or amount <= 0:
                                 st.error("Please enter valid Name and Amount.")
                             else:
                                 date_str = get_pkt_date()
+                                cust_ws_live = sheet.worksheet("Customers")
                                 if not df_cust.empty and 'Customer Name' in df_cust.columns and cust_name.lower() in df_cust['Customer Name'].str.lower().tolist():
                                     idx = df_cust.index[df_cust['Customer Name'].str.lower() == cust_name.lower()].tolist()[0]
                                     current_balance = float(df_cust.iloc[idx]['Balance (RS)'] if 'Balance (RS)' in df_cust.columns and pd.notna(df_cust.iloc[idx]['Balance (RS)']) else 0)
                                     
                                     new_balance = current_balance + amount if action == "Gave Credit (Udhaar Diya)" else current_balance - amount
                                     row_idx = idx + 2
-                                    cust_ws.update(range_name=f"C{row_idx}:D{row_idx}", values=[[new_balance, date_str]])
+                                    cust_ws_live.update(range_name=f"C{row_idx}:D{row_idx}", values=[[new_balance, date_str]])
                                     st.success(f"Updated Khata for {cust_name}! New Balance: RS {new_balance:.2f}")
                                 else:
                                     initial_balance = amount if action == "Gave Credit (Udhaar Diya)" else -amount
-                                    cust_ws.append_row([cust_name, cust_phone, initial_balance, date_str])
+                                    cust_ws_live.append_row([cust_name, cust_phone, initial_balance, date_str])
                                     st.success(f"Added new customer {cust_name} with balance RS {initial_balance:.2f}")
                                 clear_cache()
                                 st.rerun()
@@ -580,19 +638,20 @@ else:
             col_o1, col_o2 = st.columns([1, 1.5])
             
             with col_o1:
-                with st.container(border=True):
+                with st.container():
                     st.subheader("➕ Add Cash Outflow")
                     with st.form("outflow_form"):
                         desc = st.text_input("Description (e.g., Shopping, Bill)")
                         outflow_amount = st.number_input("Total Amount (RS)", min_value=0.01, value=None, step=1.0, placeholder="Enter amount...")
-                        outflow_submitted = st.form_submit_button("Save Cash Outflow", type="primary")
+                        outflow_submitted = st.form_submit_button("Save Cash Outflow")
                         
                         if outflow_submitted:
                             if not desc or outflow_amount is None or outflow_amount <= 0:
                                 st.error("Please enter valid description and amount.")
                             else:
                                 date_str = get_pkt_date()
-                                outflow_ws.insert_row([date_str, desc, outflow_amount], index=2)
+                                outflow_ws_live = sheet.worksheet("Cash Outflow")
+                                outflow_ws_live.insert_row([date_str, desc, outflow_amount], index=2)
                                 st.success(f"Logged Cash Outflow of RS {outflow_amount:.2f}")
                                 clear_cache()
                                 st.rerun()
@@ -608,25 +667,26 @@ else:
     # 📝 CUSTOMER DEMANDS
     # ==========================================
     elif menu == "📝 Customer Demands":
-        with st.container(border=True):
+        with st.container():
             st.info("Log items requested by customers that you don't currently stock.")
             with st.form("demand_form"):
                 req_item = st.text_input("Requested Item Name")
-                req_submit = st.form_submit_button("Log Demand", type="primary")
+                req_submit = st.form_submit_button("Log Demand")
                 
                 if req_submit and req_item:
                     df_req = get_data_cached("Requested Items")
                     date_str = get_pkt_date()
+                    req_ws_live = sheet.worksheet("Requested Items")
                     
                     if not df_req.empty and req_item.lower() in df_req['Item Name'].str.lower().tolist():
                         idx = df_req.index[df_req['Item Name'].str.lower() == req_item.lower()].tolist()[0]
                         current_count = int(df_req.iloc[idx]['Demand Count'])
                         
                         row_index = idx + 2
-                        req_ws.update_acell(f"C{row_index}", current_count + 1)
-                        req_ws.update_acell(f"A{row_index}", date_str) 
+                        req_ws_live.update_acell(f"C{row_index}", current_count + 1)
+                        req_ws_live.update_acell(f"A{row_index}", date_str) 
                     else:
-                        req_ws.insert_row([date_str, req_item, 1], index=2)
+                        req_ws_live.insert_row([date_str, req_item, 1], index=2)
                     
                     st.success("Demand Logged Successfully!")
                     clear_cache()
