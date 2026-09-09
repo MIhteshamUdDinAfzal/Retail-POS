@@ -20,13 +20,42 @@ st.markdown("""
         background-color: #f4f7f6;
     }
     
+    /* =========================================
+       📱 MOBILE DARK MODE FIX (Force Dark Text on Light Backgrounds)
+       ========================================= */
+    /* General text inside the main app body */
+    .stApp p, .stApp span, .stApp label, .stApp div[data-testid="stMarkdownContainer"] {
+        color: #222222 !important;
+    }
+    
+    /* Table text color fix */
+    table th, table td {
+        color: #222222 !important;
+    }
+    
+    /* Fix specifically for Metric Cards (Revenue, Profit numbers) */
+    div[data-testid="stMetricLabel"] > div, div[data-testid="stMetricLabel"] > div > p {
+        color: #FF416C !important;
+    }
+    div[data-testid="stMetricValue"] > div {
+        color: #1A2980 !important;
+    }
+    
+    /* Protect Sidebar text (keep it white) */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] div, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #ffffff !important;
+    }
+    
+    /* Keep Button text white */
+    .stButton>button, .stButton>button p, .stButton>button span {
+        color: white !important;
+    }
+    /* ========================================= */
+    
     /* 🎨 Colorful Gradient Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(135deg, #1A2980 0%, #26D0CE 100%);
         box-shadow: 5px 0 15px rgba(0,0,0,0.1);
-    }
-    [data-testid="stSidebar"] * {
-        color: #ffffff !important;
     }
     
     /* 📊 Beautiful Metric Cards (Dashboard) - MOBILE RESPONSIVE */
@@ -40,7 +69,7 @@ st.markdown("""
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         width: 100% !important;
         box-sizing: border-box !important;
-        overflow-wrap: break-word !important; /* Prevents text clipping on mobile */
+        overflow-wrap: break-word !important; 
     }
     div[data-testid="metric-container"]:hover {
         transform: translateY(-5px);
@@ -49,13 +78,11 @@ st.markdown("""
     div[data-testid="metric-container"] > div:nth-child(1) {
         font-size: 16px !important;
         font-weight: 700 !important;
-        color: #FF416C !important;
     }
     div[data-testid="metric-container"] > div:nth-child(2) {
         font-size: 28px !important;
         font-weight: 900 !important;
-        color: #1A2980 !important;
-        white-space: normal !important; /* Fixes missing numbers on mobile */
+        white-space: normal !important; 
     }
     
     /* Mobile Adjustments for extra small screens */
@@ -69,12 +96,9 @@ st.markdown("""
         }
     }
     
-    /* =========================================
-       🖱️ STUNNING MAIN APP BUTTONS (GRADIENT)
-       ========================================= */
+    /* 🖱️ Stunning Main App Buttons (Gradient) */
     .stButton>button {
         background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
-        color: white !important;
         border: none !important;
         border-radius: 30px !important;
         padding: 12px 25px !important;
@@ -89,12 +113,9 @@ st.markdown("""
         box-shadow: 0 8px 25px rgba(255, 75, 43, 0.6) !important;
     }
     
-    /* =========================================
-       📲 SIDEBAR MENU BUTTONS (GLASSMORPHISM)
-       ========================================= */
+    /* 📲 Sidebar Menu Buttons */
     [data-testid="stSidebar"] .stButton>button {
         background: rgba(255, 255, 255, 0.05) !important;
-        color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
         padding: 12px 15px !important;
@@ -142,6 +163,7 @@ st.markdown("""
         border-radius: 10px !important;
         border: 1px solid #ced4da !important;
         transition: all 0.3s;
+        color: #222222 !important; /* Force text dark inside inputs */
     }
     .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
         border-color: #26D0CE !important;
@@ -217,7 +239,7 @@ except:
     outflow_ws = None
 
 
-# --- 4. LOGIN SYSTEM WITH PERSISTENCE (Refresh Proof) ---
+# --- 4. LOGIN SYSTEM WITH PERSISTENCE ---
 USERS = {
     "admin": "admin123"
 }
@@ -292,7 +314,6 @@ else:
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in"] = False
-            # Clear URL params on logout
             st.query_params.clear()
             st.rerun()
 
