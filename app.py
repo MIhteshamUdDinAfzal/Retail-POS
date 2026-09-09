@@ -5,6 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime, timedelta
+import time
 
 # ==========================================
 # 🛑 1. PERMANENT FORCE LIGHT MODE CONFIG
@@ -22,26 +23,67 @@ st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="�
 # --- 3. VIBRANT & RESPONSIVE CSS ---
 st.markdown("""
     <style>
+    /* =========================================
+       📱 EXTREME FORCE LIGHT MODE (Fixes Mobile Black Screens/Tables)
+       ========================================= */
+    :root, html, body { color-scheme: light !important; background-color: #f4f7f6 !important; }
+    .stApp, .main, div[data-testid="stAppViewContainer"] { background-color: #f4f7f6 !important; color: #222222 !important; }
+    
     /* Hide Streamlit Branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {background: transparent !important;}
     
-    /* Ensure Everything stays Light */
-    .stApp, .main { background-color: #f4f7f6 !important; }
+    /* =========================================
+       🍔 CUSTOM HAMBURGER MENU (Replacing Arrows)
+       ========================================= */
+    /* Hide the default SVG arrows */
+    [data-testid="collapsedControl"] svg, button[aria-label="Close sidebar"] svg {
+        display: none !important;
+    }
+    
+    /* Add '☰ Menu' text and style the Open button */
+    [data-testid="collapsedControl"] button {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 5px 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        border: 1px solid #e1e4e8 !important;
+        transition: all 0.3s ease !important;
+    }
+    [data-testid="collapsedControl"] button::before {
+        content: "☰ Menu" !important;
+        font-size: 18px !important;
+        font-weight: 900 !important;
+        color: #1A2980 !important;
+        display: block !important;
+    }
+    
+    /* Add '✖' Cross symbol to the Close button */
+    button[aria-label="Close sidebar"]::before {
+        content: "✖" !important;
+        font-size: 20px !important;
+        font-weight: bold !important;
+        color: #ffffff !important;
+        display: block !important;
+    }
+    
+    /* Force General Text to Black */
     p, span, div, h1, h2, h3, h4, h5, h6, label, li { color: #222222 !important; }
     
-    /* Keep Sidebar & Buttons Colored */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #ffffff !important; }
+    /* EXCEPTIONS: Keep Sidebar, Buttons, and Metric Cards Colored */
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+        color: #ffffff !important;
+    }
     .stButton > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="stDownloadButton"] > button * { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     div[data-testid="metric-container"] > div:nth-child(1) { color: #FF416C !important; }
     div[data-testid="metric-container"] > div:nth-child(2) { color: #1A2980 !important; }
     
     /* Tables & Inputs */
-    table, th, td, tr, tbody, thead { background-color: #ffffff !important; color: #000000 !important; }
+    table, th, td, tr, tbody, thead { background-color: #ffffff !important; color: #000000 !important; border-color: #dddddd !important; }
     [data-testid="stForm"], .streamlit-expanderHeader, div[data-testid="stVerticalBlock"] > div[style*="border"] {
-        background-color: #ffffff !important; border-radius: 15px !important; box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
+        background-color: #ffffff !important; border-radius: 15px !important; border: 1px solid #ced4da !important; box-shadow: 0 5px 15px rgba(0,0,0,0.04) !important;
     }
     div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #ffffff !important; border-radius: 8px !important; border: 1px solid #aaa !important; }
     input, select, textarea, div[data-baseweb="select"] span { color: #000000 !important; -webkit-text-fill-color: #000000 !important; font-weight: 600 !important; }
@@ -53,33 +95,18 @@ st.markdown("""
     
     /* Metric Cards */
     div[data-testid="metric-container"] {
-        background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
-        border-radius: 15px; padding: 20px; box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
-        border-top: 6px solid #FF416C; width: 100% !important; box-sizing: border-box !important; overflow-wrap: break-word !important; 
+        background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%); border-radius: 15px; padding: 20px; box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08); border-top: 6px solid #FF416C; width: 100% !important; box-sizing: border-box !important; overflow-wrap: break-word !important; 
     }
     div[data-testid="metric-container"] > div:nth-child(2) { font-size: 28px !important; font-weight: 900 !important; white-space: normal !important; }
-    
-    @media (max-width: 768px) {
-        div[data-testid="metric-container"] { padding: 15px; margin-bottom: 10px; }
-        div[data-testid="metric-container"] > div:nth-child(2) { font-size: 24px !important; }
-    }
+    @media (max-width: 768px) { div[data-testid="metric-container"] { padding: 15px; margin-bottom: 10px; } div[data-testid="metric-container"] > div:nth-child(2) { font-size: 24px !important; } }
     
     /* Buttons */
-    .stButton>button {
-        background: linear-gradient(to right, #FF416C, #FF4B2B) !important;
-        border-radius: 30px !important; padding: 12px 25px !important; font-weight: 700 !important; box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important;
-    }
-    div[data-testid="stDownloadButton"] > button {
-        background: linear-gradient(to right, #1A2980, #26D0CE) !important; border-radius: 30px !important; box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important; width: 100% !important;
-    }
+    .stButton>button { background: linear-gradient(to right, #FF416C, #FF4B2B) !important; border-radius: 30px !important; padding: 12px 25px !important; font-weight: 700 !important; box-shadow: 0 4px 15px rgba(255, 75, 43, 0.4) !important; }
+    div[data-testid="stDownloadButton"] > button { background: linear-gradient(to right, #1A2980, #26D0CE) !important; border-radius: 30px !important; box-shadow: 0 4px 15px rgba(38, 208, 206, 0.4) !important; width: 100% !important; }
     
     /* Sidebar Buttons */
-    [data-testid="stSidebar"] .stButton>button {
-        background: rgba(255, 255, 255, 0.05) !important; border-radius: 12px !important; margin-bottom: 5px !important;
-    }
-    [data-testid="stSidebar"] .stButton>button[kind="primary"] {
-        background: rgba(255, 255, 255, 0.25) !important; border-left: 5px solid #FFD700 !important; font-weight: 800 !important;
-    }
+    [data-testid="stSidebar"] .stButton>button { background: rgba(255, 255, 255, 0.05) !important; border-radius: 12px !important; margin-bottom: 5px !important; }
+    [data-testid="stSidebar"] .stButton>button[kind="primary"] { background: rgba(255, 255, 255, 0.25) !important; border-left: 5px solid #FFD700 !important; font-weight: 800 !important; }
     h1, h2, h3 { font-weight: 800 !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -220,25 +247,25 @@ else:
 
     menu = st.session_state["active_menu"]
     
-    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (WITH TIMER DELAY) 🟢
+    # 🟢 SCRIPT TO COLLAPSE SIDEBAR ON MOBILE (100% WORKING HACK) 🟢
     if st.session_state.get("close_sidebar", False):
+        # Adding a dynamic timestamp ensures this JS runs freshly on EVERY click
+        dynamic_id = datetime.now().timestamp()
         components.html(
-            """
+            f"""
             <script>
-                setTimeout(function() {
-                    // Method 1: Find the actual close button and click it
-                    var buttons = window.parent.document.querySelectorAll('button');
-                    for (var i = 0; i < buttons.length; i++) {
-                        var aria = buttons[i].getAttribute('aria-label');
-                        var testid = buttons[i].getAttribute('data-testid');
-                        if (aria === 'Close sidebar' || testid === 'stSidebarCollapseButton' || testid === 'baseButton-headerNoPadding') {
-                            buttons[i].click();
-                            break;
-                        }
-                    }
-                    // Method 2: Trigger Escape Key if button is not found
-                    window.parent.document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
-                }, 300); // 300 milliseconds delay
+                // Run ID: {dynamic_id}
+                setTimeout(function() {{
+                    const parentDoc = window.parent.document;
+                    // Find the close button and click it
+                    const closeBtn = parentDoc.querySelector('button[aria-label="Close sidebar"]');
+                    if (closeBtn) {{
+                        closeBtn.click();
+                    }} else {{
+                        // Fallback Keyboard Event
+                        parentDoc.dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape', bubbles: true}}));
+                    }}
+                }}, 100);
             </script>
             """,
             height=0, width=0
