@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # --- 1. SETUP & PAGE CONFIG (Must be first) ---
 st.set_page_config(page_title="Ihtesham Bartan and Karakari Store", page_icon="🏪", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. VIBRANT & PROFESSIONAL CUSTOM CSS ---
+# --- 2. VIBRANT, PROFESSIONAL & RESPONSIVE CUSTOM CSS ---
 st.markdown("""
     <style>
     /* Hide Streamlit Branding but KEEP the sidebar toggle button */
@@ -29,7 +29,7 @@ st.markdown("""
         color: #ffffff !important;
     }
     
-    /* 📊 Beautiful Metric Cards (Dashboard) */
+    /* 📊 Beautiful Metric Cards (Dashboard) - MOBILE RESPONSIVE */
     div[data-testid="metric-container"] {
         background: linear-gradient(135deg, #ffffff 0%, #f9fbfd 100%);
         border: none;
@@ -38,20 +38,35 @@ st.markdown("""
         box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
         border-top: 6px solid #FF416C; 
         transition: transform 0.3s ease, box-shadow 0.3s ease;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-wrap: break-word !important; /* Prevents text clipping on mobile */
     }
     div[data-testid="metric-container"]:hover {
         transform: translateY(-5px);
         box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.15);
     }
     div[data-testid="metric-container"] > div:nth-child(1) {
-        font-size: 17px !important;
+        font-size: 16px !important;
         font-weight: 700 !important;
         color: #FF416C !important;
     }
     div[data-testid="metric-container"] > div:nth-child(2) {
-        font-size: 30px !important;
+        font-size: 28px !important;
         font-weight: 900 !important;
         color: #1A2980 !important;
+        white-space: normal !important; /* Fixes missing numbers on mobile */
+    }
+    
+    /* Mobile Adjustments for extra small screens */
+    @media (max-width: 768px) {
+        div[data-testid="metric-container"] {
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        div[data-testid="metric-container"] > div:nth-child(2) {
+            font-size: 24px !important;
+        }
     }
     
     /* =========================================
@@ -87,7 +102,6 @@ st.markdown("""
         margin-bottom: 5px !important;
         width: 100% !important;
     }
-    /* Align Text to Left inside Sidebar Buttons */
     [data-testid="stSidebar"] .stButton>button div,
     [data-testid="stSidebar"] .stButton>button div p {
         justify-content: flex-start !important;
@@ -113,10 +127,6 @@ st.markdown("""
         font-weight: 800 !important;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
         transform: scale(1) !important; 
-    }
-    [data-testid="stSidebar"] .stButton>button[data-testid="baseButton-primary"]:hover,
-    [data-testid="stSidebar"] .stButton>button[kind="primary"]:hover {
-        transform: translateX(5px) !important; 
     }
     
     /* 🗂️ Beautiful Containers and Forms */
@@ -207,13 +217,27 @@ except:
     outflow_ws = None
 
 
-# --- 4. LOGIN SYSTEM ---
+# --- 4. LOGIN SYSTEM WITH PERSISTENCE (Refresh Proof) ---
 USERS = {
     "admin": "admin123"
 }
 SHOP_INFO = {
     "admin": "Ihtesham Bartan and Karakari Store"
 }
+
+# Check URL Query Params to remember login state after refresh
+if "logged_in" not in st.session_state:
+    if st.query_params.get("logged_in") == "true":
+        st.session_state["logged_in"] = True
+        st.session_state["username"] = st.query_params.get("user", "admin")
+    else:
+        st.session_state["logged_in"] = False
+
+if "active_menu" not in st.session_state:
+    st.session_state["active_menu"] = "📊 Dashboard"
+
+def change_menu(new_menu):
+    st.session_state["active_menu"] = new_menu
 
 def login():
     st.markdown("<h1 style='text-align: center; background: -webkit-linear-gradient(#1A2980, #26D0CE); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>🏪 Ihtesham Bartan and Karakari Store</h1>", unsafe_allow_html=True)
@@ -231,20 +255,14 @@ def login():
                 if username in USERS and USERS[username] == password:
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
+                    # Save to URL to survive refresh
+                    st.query_params["logged_in"] = "true"
+                    st.query_params["user"] = username
                     st.success("Login Successful! Redirecting...")
                     st.rerun()
                 else:
                     st.error("Invalid Username or Password")
 
-# Initialize Session States
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-
-if "active_menu" not in st.session_state:
-    st.session_state["active_menu"] = "📊 Dashboard"
-
-def change_menu(new_menu):
-    st.session_state["active_menu"] = new_menu
 
 # --- 5. MAIN APP NAVIGATION & LOGIC ---
 if not st.session_state["logged_in"]:
@@ -274,6 +292,8 @@ else:
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in"] = False
+            # Clear URL params on logout
+            st.query_params.clear()
             st.rerun()
 
     menu = st.session_state["active_menu"]
