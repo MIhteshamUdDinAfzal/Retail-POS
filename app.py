@@ -428,14 +428,18 @@ else:
             with st.container():
                 st.subheader("🛒 1. Add Items to Cart")
                 
-                # 🔴 RE-ADDED MANUAL SEARCH BOX FOR MOBILE SUPPORT
-                st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'** on your keyboard to filter the list.")
-                search_term_pos = st.text_input("🔍 1. Search Item Name (Press Enter to Apply)", placeholder="Type here and press Enter...", key="search_pos")
+                st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
+                
+                # 🔴 PURE LOGIC: Auto-Select First Filtered Item
+                search_term_pos = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_pos")
                 
                 filtered_pos = [item for item in available_items if search_term_pos.strip().lower() in item.lower()] if search_term_pos else available_items
+                
+                # Auto select index 0 if search is used and matches found, otherwise None
+                auto_index = 0 if (search_term_pos and len(filtered_pos) > 0) else None
 
                 with st.form("add_to_cart_form"):
-                    selected_item = st.selectbox("📌 2. Select Item", filtered_pos, index=None, placeholder="Choose an item...")
+                    selected_item = st.selectbox("📌 2. Item Selected", filtered_pos, index=auto_index, placeholder="Choose an item...")
                     
                     c1, c2 = st.columns(2)
                     qty_sold = c1.number_input("Quantity / Weight Sold", min_value=0.01, value=None, step=1.0, format="%.2f", placeholder="Enter quantity...")
@@ -586,13 +590,16 @@ else:
                 st.warning("No items in inventory yet. Please add a new item first.")
             else:
                 with st.container():
-                    # 🔴 RE-ADDED MANUAL SEARCH BOX FOR MOBILE
-                    st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'** on your keyboard to filter the list.")
-                    search_term_inv = st.text_input("🔍 1. Search Item Name (Press Enter to Apply)", placeholder="Type here and press Enter...", key="search_inv")
+                    st.info("💡 **Mobile Tip:** Type the item name below and press **'Enter' / 'Search'**. The item will be auto-selected!")
+                    
+                    # 🔴 PURE LOGIC: Auto-Select First Filtered Item
+                    search_term_inv = st.text_input("🔍 1. Search Item Name (Press Enter)", placeholder="Type here and press Enter...", key="search_inv")
                     
                     filtered_inv = [item for item in existing_items if search_term_inv.strip().lower() in item.lower()] if search_term_inv else existing_items
 
-                    selected_option = st.selectbox("📌 2. Select Item", filtered_inv, index=None, placeholder="Choose an item...")
+                    auto_index_inv = 0 if (search_term_inv and len(filtered_inv) > 0) else None
+
+                    selected_option = st.selectbox("📌 2. Item Selected", filtered_inv, index=auto_index_inv, placeholder="Choose an item...")
                     
                     default_price = None 
                     current_unit = "Pcs"
