@@ -2,3 +2,6 @@ streamlit
 gspread
 google-auth
 pandas
+audio-recorder-streamlit
+groq
+google-generativeai
